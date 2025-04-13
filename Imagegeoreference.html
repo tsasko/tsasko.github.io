@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Terrain s Ortofotom a Overlay s Gizmami</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <style>
+      html,
+      body {
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #renderCanvas {
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+      #controls {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(255, 255, 255, 0.85);
+        padding: 10px;
+        border-radius: 4px;
+        font-family: sans-serif;
+        font-size: 14px;
+      }
+      #controls > div {
+        margin-bottom: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="controls">
+      <div>
+        <label>
+          Upload obrazka:
+          <input type="file" id="fileInput" accept="image/*" />
+        </label>
+      </div>
+      <div>
+        <label>
+          Posun X:
+          <input type="range" id="posX" min="-50" max="50" step="0.1" value="0" />
+        </label>
+      </div>
+      <div>
+        <label>
+          Posun Z:
+          <input type="range" id="posZ" min="-50" max="50" step="0.1" value="0" />
+        </label>
+      </div>
+      <div>
+        <label>
+          Rotácia (°):
+          <input type="range" id="rotation" min="0" max="360" step="1" value="0" />
+        </label>
+      </div>
+      <div>
+        <label>
+          Mierka:
+          <input type="range" id="scale" min="0.1" max="10" step="0.1" value="1" />
+        </label>
+      </div>
+      <div>
+        <label>
+          Transparentnosť:
+          <input
+            type="range"
+            id="transparency"
+            min="0"
+            max="1"
+            step="0.01"
+            value="0.5"
+          />
+        </label>
+      </div>
+    </div>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+      var canvas = document.getElementById("renderCanvas");
+      var engine = new BABYLON.Engine(canvas, true);
+      var scene = new BABYLON.Scene(engine);
+
+      // Kamera a svetlo
+      var camera = new BABYLON.ArcRotateCamera("Camera", Math.PI / 2, Math.PI / 3, 150, new BABYLON.Vector3(0, 0, 0), scene);
+      camera.attachControl(canvas, true);
+      new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+
+      // Funkcia na vytvorenie nepravidelnej trojuholníkovej siete (terén)
+      function createIrregularGround(name, width, depth, subdivisions, maxOffset) {
+        var positions = [];
+        var uvs = [];
+        var indices = [];
+        var rows = subdivisions + 1;
+        var cols = subdivisions + 1;
+        var xs = [];
+        var zs = [];
+        for (var i = 0; i < rows; i++) {
+          for (var j = 0; j < cols; j++) {
+            var baseX = -width / 2 + j * (width / subdivisions);
+            var baseZ = -depth / 2 + i * (depth / subdivisions);
+            var offsetX = (Math.random() - 0.5) * maxOffset;
+            var offsetZ = (Math.random() - 0.5) * maxOffset;
+            var x = baseX + offsetX;
+            var z = baseZ + offsetZ;
+            positions.push(x, 0, z);
+            xs.push(x);
+            zs.push(z);
+          }
+        }
+        var minX = Math.min(...xs);
+        var maxX = Math.max(...xs);
+        var minZ = Math.min(...zs);
+        var maxZ = Math.max(...zs);
+        for (var i = 0; i < rows; i++) {
+          for (var j = 0; j < cols; j++) {
+            var idx = i * cols + j;
+            var u = (xs[idx] - minX) / (maxX - minX);
+            var v = (zs[idx] - minZ) / (maxZ - minZ);
+            uvs.push(u, v);
+          }
+        }
+        for (var i = 0; i < subdivisions; i++) {
+          for (var j = 0; j < subdivisions; j++) {
+            var index = i * cols + j;
+            indices.push(index, index + 1, index + cols);
+            indices.push(index + 1, index + cols + 1, index + cols);
+          }
+        }
+        var customMesh = new BABYLON.Mesh(name, scene);
+        var vertexData = new BABYLON.VertexData();
+        vertexData.positions = positions;
+        vertexData.indices = indices;
+        vertexData.uvs = uvs;
+        var normals = [];
+        for (var i = 0; i < positions.length / 3; i++) {
+          normals.push(0, 1, 0);
+        }
+        vertexData.normals = normals;
+        vertexData.applyToMesh(customMesh);
+        return customMesh;
+      }
+      
+      // Vytvorenie terénu
+      var terrain = createIrregularGround("terrain", 100, 100, 20, 2);
+      
+      // Nastavenie materiálu s ortofotom (OSM dlaždica)
+      var groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene);
+      groundMaterial.diffuseTexture = new BABYLON.Texture("https://a.tile.openstreetmap.org/10/511/340.png", scene, false, true);
+      terrain.material = groundMaterial;
+      
+      // Premenné pre overlay
+      var overlayPlane = null;
+      var overlayMaterial = null;
+      
+      // Inicializácia GizmoManager – umožní priamu manipuláciu s objektom
+      var gizmoManager = new BABYLON.GizmoManager(scene);
+      gizmoManager.usePointerToAttachGizmos = true;
+      gizmoManager.positionGizmoEnabled = true;
+      gizmoManager.rotationGizmoEnabled = true;
+      gizmoManager.scaleGizmoEnabled = true;
+      
+      // Pri kliknutí na mesh (overlay) sa gizmo pripojí
+      scene.onPointerObservable.add(function (pointerInfo) {
+        if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN) {
+          var pickResult = pointerInfo.pickInfo;
+          if (pickResult.hit && pickResult.pickedMesh === overlayPlane) {
+            gizmoManager.attachToMesh(overlayPlane);
+          } else {
+            gizmoManager.attachToMesh(null);
+          }
+        }
+      });
+      
+      // Upload obrázka a vytvorenie overlay nad terénom
+      document.getElementById("fileInput").addEventListener("change", function (e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function (evt) {
+          var dataURL = evt.target.result;
+          if (overlayPlane) {
+            overlayPlane.dispose();
+          }
+          overlayPlane = BABYLON.MeshBuilder.CreatePlane("overlayPlane", { width: 10, height: 10 }, scene);
+          overlayPlane.rotation.x = Math.PI / 2;
+          overlayPlane.position.y = 0.1;
+          overlayMaterial = new BABYLON.StandardMaterial("overlayMaterial", scene);
+          overlayMaterial.diffuseTexture = new BABYLON.Texture(dataURL, scene, false, true);
+          overlayMaterial.diffuseTexture.hasAlpha = true;
+          overlayMaterial.backFaceCulling = false;
+          overlayMaterial.alpha = parseFloat(document.getElementById("transparency").value);
+          overlayPlane.material = overlayMaterial;
+        };
+        reader.readAsDataURL(file);
+      });
+      
+      // Ovládacie prvky pre zmenu transformácií overlay
+      document.getElementById("posX").addEventListener("input", function (e) {
+        if (overlayPlane) {
+          overlayPlane.position.x = parseFloat(e.target.value);
+        }
+      });
+      document.getElementById("posZ").addEventListener("input", function (e) {
+        if (overlayPlane) {
+          overlayPlane.position.z = parseFloat(e.target.value);
+        }
+      });
+      document.getElementById("rotation").addEventListener("input", function (e) {
+        if (overlayPlane) {
+          overlayPlane.rotation.y = BABYLON.Tools.ToRadians(parseFloat(e.target.value));
+        }
+      });
+      document.getElementById("scale").addEventListener("input", function (e) {
+        if (overlayPlane) {
+          var sc = parseFloat(e.target.value);
+          overlayPlane.scaling = new BABYLON.Vector3(sc, sc, sc);
+        }
+      });
+      document.getElementById("transparency").addEventListener("input", function (e) {
+        if (overlayMaterial) {
+          overlayMaterial.alpha = parseFloat(e.target.value);
+        }
+      });
+      
+      engine.runRenderLoop(function () {
+        scene.render();
+      });
+      
+      window.addEventListener("resize", function () {
+        engine.resize();
+      });
+    </script>
+  </body>
+</html>

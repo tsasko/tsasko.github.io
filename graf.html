@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Straty PV systému - Prašnosť</title>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+</head>
+<body>
+    <div id="pv-straty-graf" style="width: 600px; height: 400px;"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            Highcharts.chart('pv-straty-graf', {
+                chart: {
+                    type: 'line' // Používame čiarový graf
+                },
+                title: {
+                    text: 'Mesačné percentuálne straty PV systému spôsobené prašnosťou'
+                },
+                xAxis: {
+                    categories: ['Január', 'Február', 'Marec', 'Apríl', 'Máj', 'Jún', 'Júl', 'August', 'September', 'Október', 'November', 'December'],
+                    title: {
+                        text: 'Mesiace'
+                    }
+                },
+                yAxis: {
+                    min: 0,
+                    max: 10, // Predpokladáme max 10% straty
+                    title: {
+                        text: 'Percentuálne straty (%)'
+                    }
+                },
+                tooltip: {
+                    pointFormat: '<b>{point.y:.2f} %</b>'
+                },
+                series: [{
+                    name: 'Straty spôsobené prašnosťou',
+                    data: [1.5, 1.8, 2.0, 2.5, 3.0, 4.0, 4.5, 4.8, 3.5, 2.5, 2.0, 1.8] // Percentuálne straty pre jednotlivé mesiace
+                }]
+            });
+        });
+    </script>
+</body>
+</html>

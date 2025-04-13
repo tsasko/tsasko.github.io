@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="sk">
+  <head>
+    <meta charset="UTF-8" />
+    <title>TIN-terén s wireframe a kreslením polygonu v BabylonJS</title>
+    <style>
+      html, body {
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #renderCanvas {
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+    </style>
+    <!-- Načítanie BabylonJS -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  </head>
+  <body>
+    <canvas id="renderCanvas"></canvas>
+    <script>
+      var canvas = document.getElementById("renderCanvas");
+      var engine = new BABYLON.Engine(canvas, true);
+
+      // Funkcia na vytvorenie TIN-terénu – vytvorí nepravidelnú mriežku s trojuholníkmi.
+      function createTINTerrain(scene) {
+        const rows = 7;
+        const cols = 7;
+        const positions = [];
+        const indices = [];
+        const offsetMagnitude = 5;  // maximálna náhodná odchýlka pre x a z
+        const xMin = -50, xMax = 50;
+        const zMin = -50, zMax = 50;
+
+        for (let i = 0; i < rows; i++) {
+          for (let j = 0; j < cols; j++) {
+            let u = j / (cols - 1);
+            let v = i / (rows - 1);
+            let baseX = xMin + u * (xMax - xMin);
+            let baseZ = zMin + v * (zMax - zMin);
+            // Náhodný offset pre "irregularitu"
+            let randX = (Math.random() - 0.5) * offsetMagnitude;
+            let randZ = (Math.random() - 0.5) * offsetMagnitude;
+            let x = baseX + randX;
+            let z = baseZ + randZ;
+            // Jednoduchá funkcia pre výpočet výšky
+            let y = Math.sin(x * 0.1) * Math.cos(z * 0.1) * 5;
+            positions.push(x, y, z);
+          }
+        }
+
+        // Vytvorenie trojuholníkov – každý štvorček mriežky rozdelíme na dve trojuholníky.
+        for (let i = 0; i < rows - 1; i++) {
+          for (let j = 0; j < cols - 1; j++) {
+            let topLeft = i * cols + j;
+            let topRight = topLeft + 1;
+            let bottomLeft = topLeft + cols;
+            let bottomRight = bottomLeft + 1;
+            indices.push(topLeft, bottomLeft, topRight);
+            indices.push(bottomLeft, bottomRight, topRight);
+          }
+        }
+
+        var tinMesh = new BABYLON.Mesh("tinTerrain", scene);
+        var vertexData = new BABYLON.VertexData();
+        vertexData.positions = positions;
+        vertexData.indices = indices;
+        vertexData.normals = [];
+        BABYLON.VertexData.ComputeNormals(positions, indices, vertexData.normals);
+        vertexData.applyToMesh(tinMesh);
+
+        tinMesh.checkCollisions = true;
+        var tinMat = new BABYLON.StandardMaterial("tinMat", scene);
+        tinMat.diffuseColor = new BABYLON.Color3(0.6, 0.4, 0.3);
+        tinMat.wireframe = true; // Zobrazí terén ako wireframe
+        tinMesh.material = tinMat;
+        return tinMesh;
+      }
+
+      // Funkcia na generovanie viacbodovej čiary podľa terénu medzi dvoma bodmi.
+      function getLineOnTerrain(scene, ground, start, end, steps) {
+        var pathPoints = [];
+        for (let i = 0; i <= steps; i++) {
+          let alpha = i / steps;
+          let x = BABYLON.Scalar.Lerp(start.x, end.x, alpha);
+          let z = BABYLON.Scalar.Lerp(start.z, end.z, alpha);
+          let ray = new BABYLON.Ray(new BABYLON.Vector3(x, 9999, z), new BABYLON.Vector3(0, -1, 0));
+          let pick = scene.pickWithRay(ray, (mesh) => mesh === ground);
+          if (pick.hit) {
+            pathPoints.push(pick.pickedPoint.clone());
+          } else {
+            let y = BABYLON.Scalar.Lerp(start.y, end.y, alpha);
+            pathPoints.push(new BABYLON.Vector3(x, y, z));
+          }
+        }
+        return pathPoints;
+      }
+
+      // Funkcia, ktorá zo zoznamu kontrolných bodov vytvára polyline po teréne.
+      function buildTerrainPolyline(scene, ground, points, steps) {
+        if (points.length < 2) return null;
+        let finalPoints = [points[0]];
+        for (let i = 0; i < points.length - 1; i++) {
+          let seg = getLineOnTerrain(scene, ground, points[i], points[i + 1], steps);
+          finalPoints = finalPoints.concat(seg.slice(1));
+        }
+        return BABYLON.MeshBuilder.CreateLines("permLine", { points: finalPoints }, scene);
+      }
+
+      var createScene = function () {
+        var scene = new BABYLON.Scene(engine);
+        scene.clearColor = new BABYLON.Color4(0.8, 0.9, 1, 1);
+
+        var camera = new BABYLON.ArcRotateCamera("cam",
+          -Math.PI/2, Math.PI/3, 150, BABYLON.Vector3.Zero(), scene
+        );
+        camera.attachControl(canvas, true);
+
+        var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+        light.intensity = 0.95;
+
+        // Vytvor TIN-terén
+        var ground = createTINTerrain(scene);
+
+        // Premenné pre kreslenie polygonu
+        var confirmedPoints = [];
+        var permanentLine = null;
+        var dynamicLine = null;
+        var stepsPerSegment = 20;
+
+        function refreshPermanentLine() {
+          if (permanentLine) permanentLine.dispose();
+          if (confirmedPoints.length > 1) {
+            permanentLine = buildTerrainPolyline(scene, ground, confirmedPoints, stepsPerSegment);
+            if (permanentLine)
+              permanentLine.color = new BABYLON.Color3(1, 0, 0);
+          }
+        }
+
+        scene.onPointerMove = function () {
+          if (confirmedPoints.length === 0) return;
+          var pickResult = scene.pick(scene.pointerX, scene.pointerY, (m) => m === ground);
+          if (pickResult.hit) {
+            if (dynamicLine) dynamicLine.dispose();
+            let sampledPoints = getLineOnTerrain(scene, ground, confirmedPoints[confirmedPoints.length - 1], pickResult.pickedPoint, stepsPerSegment);
+            dynamicLine = BABYLON.MeshBuilder.CreateLines("dynamicLine", { points: sampledPoints }, scene);
+            dynamicLine.color = new BABYLON.Color3(0, 0, 1);
+          }
+        };
+
+        scene.onPointerDown = function () {
+          var pickResult = scene.pick(scene.pointerX, scene.pointerY, (m) => m === ground);
+          if (pickResult.hit) {
+            confirmedPoints.push(pickResult.pickedPoint.clone());
+            refreshPermanentLine();
+            if (dynamicLine) {
+              dynamicLine.dispose();
+              dynamicLine = null;
+            }
+          }
+        };
+
+        return scene;
+      };
+
+      var scene = createScene();
+      engine.runRenderLoop(function () {
+        scene.render();
+      });
+      window.addEventListener("resize", function () {
+        engine.resize();
+      });
+    </script>
+  </body>
+</html>

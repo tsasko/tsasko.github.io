@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Solargis NPV Calculator</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --primary-color: #0072ce;
+        --secondary-color: #f5f7fa;
+        --border-color: #e0e6ed;
+        --text-color: #1f2d3d;
+        --background: #ffffff;
+        --font-family: 'Roboto', sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: var(--font-family);
+        background: var(--secondary-color);
+        color: var(--text-color);
+      }
+
+      header {
+        background-color: var(--primary-color);
+        color: white;
+        padding: 1rem 2rem;
+        font-size: 1.25rem;
+        font-weight: 500;
+      }
+
+      .container {
+        max-width: 960px;
+        margin: 2rem auto;
+        background: var(--background);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 2rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+
+      h2 {
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+      }
+
+      input[type="number"] {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        margin-bottom: 1rem;
+      }
+
+      button {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        font-weight: 500;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        background-color: #005fa3;
+      }
+
+      .output {
+        margin-top: 2rem;
+        font-size: 1.25rem;
+        font-weight: bold;
+        color: var(--primary-color);
+      }
+    </style>
+  </head>
+  <body>
+    <header>Solargis Evaluate &ndash; NPV Prototype</header>
+    <div class="container">
+      <h2>Net Present Value (NPV) Calculator</h2>
+      <form id="npv-form">
+        <label for="initialInvestment">Initial CAPEX (&euro;)</label>
+        <input type="number" id="initialInvestment" required />
+
+        <label for="annualRevenue">Annual Revenue (&euro;/year)</label>
+        <input type="number" id="annualRevenue" required />
+
+        <label for="annualOpex">Annual OPEX (&euro;/year)</label>
+        <input type="number" id="annualOpex" required />
+
+        <label for="years">Project Lifetime (years)</label>
+        <input type="number" id="years" value="25" required />
+
+        <label for="discountRate">Discount Rate (%)</label>
+        <input type="number" id="discountRate" value="6" required />
+
+        <button type="submit">Calculate NPV</button>
+      </form>
+      <div id="result" class="output"></div>
+    </div>
+
+    <script>
+      document.getElementById('npv-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+
+        const capex = parseFloat(document.getElementById('initialInvestment').value);
+        const revenue = parseFloat(document.getElementById('annualRevenue').value);
+        const opex = parseFloat(document.getElementById('annualOpex').value);
+        const years = parseInt(document.getElementById('years').value);
+        const discountRate = parseFloat(document.getElementById('discountRate').value) / 100;
+
+        let npv = -capex;
+        for (let t = 1; t <= years; t++) {
+          const netCashFlow = revenue - opex;
+          npv += netCashFlow / Math.pow(1 + discountRate, t);
+        }
+
+        document.getElementById('result').innerText = `NPV: € ${npv.toFixed(2)}`;
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Energy Price Curve Editor (v8.3 – Smart Axis)</title>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/modules/draggable-points.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+    }
+    #main {
+      display: flex;
+      gap: 40px;
+    }
+    #container {
+      width: 900px;
+      height: 500px;
+    }
+    #controls {
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+    }
+    .slider-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    input[type=range].vertical {
+      writing-mode: bt-lr;
+      -webkit-appearance: slider-vertical;
+      width: 8px;
+      height: 200px;
+      padding: 0 5px;
+    }
+    input[type=range].horizontal {
+      width: 400px;
+    }
+    label {
+      font-weight: bold;
+    }
+    #bottom-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    #price-table {
+      margin-top: 30px;
+      font-size: 14px;
+      border-collapse: collapse;
+    }
+    #price-table td {
+      border: 1px solid #ccc;
+      padding: 4px 8px;
+      text-align: center;
+    }
+    #price-table th {
+      background-color: #f0f0f0;
+    }
+    #min-price-settings {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    #minPrice {
+      width: 100px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="main">
+    <div id="container"></div>
+
+    <div id="controls">
+      <div class="slider-wrapper">
+        <label for="priceShift">Price shift (€/MWh)</label>
+        <input class="vertical" type="range" id="priceShift" min="-100" max="200" value="0">
+        <span id="priceShiftValue">0 €/MWh</span>
+      </div>
+
+      <div class="slider-wrapper">
+        <label for="stretch">Stretch (%)</label>
+        <input class="vertical" type="range" id="stretch" min="0" max="500" value="100">
+        <span id="stretchValue">100%</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="bottom-controls">
+    <label for="balance">Balance (← Morning / Evening →)</label>
+    <input class="horizontal" type="range" id="balance" min="-100" max="100" value="0">
+    <span id="balanceValue">0%</span>
+  </div>
+
+  <div id="min-price-settings">
+    <label>
+      <input type="checkbox" id="enableMinPrice"> Enable minimum guaranteed price
+    </label>
+    <div id="minPriceInputWrapper" style="display:none;">
+      <label for="minPrice">Minimum price (€/MWh):</label>
+      <input type="number" id="minPrice" value="0" step="1">
+    </div>
+  </div>
+
+  <div id="table-wrapper">
+    <table id="price-table">
+      <tr id="hour-row"><th>Hour</th></tr>
+      <tr id="price-row"><th>Price (€/MWh)</th></tr>
+    </table>
+  </div>
+
+  <div style="text-align:center; margin-top: 20px;">
+    <button id="resetButton">🔁 Reset Points to Base Curve</button>
+  </div>
+
+  <script>
+    let basePrices = [
+      50, 48, 46, 45, 44, 43, 40, 35, 30, 25, 22, 20,
+      20, 22, 26, 30, 35, 40, 45, 48, 52, 55, 53, 50
+    ];
+    const defaultPrices = [...basePrices];
+    let chart;
+
+    function applyTransformations() {
+      const priceShift = parseFloat(document.getElementById("priceShift").value);
+      const balance = parseInt(document.getElementById("balance").value);
+      const stretch = parseInt(document.getElementById("stretch").value);
+      const enableMin = document.getElementById("enableMinPrice").checked;
+      const minPrice = enableMin ? parseFloat(document.getElementById("minPrice").value) : -Infinity;
+
+      const transformed = basePrices.map((p, i) => {
+        const hourFactor = (i - 12) / 12;
+        const balanceEffect = (balance / 100) * 20 * hourFactor;
+        const stretched = 50 + ((p - 50) * stretch / 100);
+        const final = stretched + priceShift + balanceEffect;
+        return Math.max(minPrice, Math.round(final * 100) / 100);
+      });
+
+      const minVal = Math.min(...transformed);
+      const dynamicMin = minVal < 0 ? Math.floor(minVal / 5) * 5 - 5 : null;
+
+      chart.update({
+        yAxis: {
+          min: dynamicMin,
+          plotBands: minVal < 0 ? [{
+            from: -100,
+            to: 0,
+            color: 'rgba(255, 0, 0, 0.05)'
+          }] : []
+        }
+      });
+
+      chart.series[0].setData(transformed, true, false, false);
+      updateTable(transformed);
+      updateMinPriceLine(enableMin ? parseFloat(minPrice) : null);
+    }
+
+    function updateMinPriceLine(value) {
+      chart.yAxis[0].removePlotLine("minLine");
+      if (value !== null) {
+        chart.yAxis[0].addPlotLine({
+          value,
+          color: 'blue',
+          width: 3,
+          id: "minLine",
+          dashStyle: 'Solid',
+          label: {
+            text: `Min: ${value} €/MWh`,
+            align: 'right',
+            style: { color: 'blue', fontWeight: 'bold' },
+            x: -10
+          }
+        });
+      }
+    }
+
+    function updateTable(prices) {
+      const hourRow = document.getElementById("hour-row");
+      const priceRow = document.getElementById("price-row");
+
+      hourRow.innerHTML = "<th>Hour</th>";
+      priceRow.innerHTML = "<th>Price (€/MWh)</th>";
+
+      prices.forEach((price, i) => {
+        hourRow.innerHTML += `<td>${i}:00</td>`;
+        priceRow.innerHTML += `<td>${price}</td>`;
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      chart = Highcharts.chart('container', {
+        chart: { type: 'line' },
+        title: { text: 'Energy Price Curve (€/MWh)' },
+        xAxis: {
+          categories: Array.from({ length: 24 }, (_, i) => `${i}:00`)
+        },
+        yAxis: {
+          title: { text: 'Price (€/MWh)' },
+          plotLines: [{
+            value: 0,
+            color: '#666',
+            width: 2,
+            dashStyle: 'Dash',
+            zIndex: 3,
+            label: {
+              text: '0 €/MWh',
+              align: 'right',
+              style: { color: '#666' },
+              x: -10
+            }
+          }]
+        },
+        plotOptions: {
+          series: {
+            dragDrop: { draggableY: true },
+            point: {
+              events: {
+                drop: function () {
+                  basePrices[this.x] = this.y;
+                  updateTable(chart.series[0].data.map(p => p.y));
+                  updateMinPriceLine(
+                    document.getElementById("enableMinPrice").checked
+                      ? parseFloat(document.getElementById("minPrice").value)
+                      : null
+                  );
+                }
+              }
+            }
+          }
+        },
+        series: [{
+          name: 'Hourly Price',
+          data: [...basePrices]
+        }]
+      });
+
+      updateTable(basePrices);
+
+      const sliders = [
+        { id: 'priceShift', label: 'priceShiftValue', suffix: ' €/MWh' },
+        { id: 'stretch', label: 'stretchValue', suffix: '%' },
+        { id: 'balance', label: 'balanceValue', suffix: '%' }
+      ];
+
+      sliders.forEach(({ id, label, suffix }) => {
+        const input = document.getElementById(id);
+        const labelElem = document.getElementById(label);
+        input.addEventListener("input", () => {
+          labelElem.textContent = input.value + suffix;
+          applyTransformations();
+        });
+      });
+
+      document.getElementById("minPrice").addEventListener("input", applyTransformations);
+
+      document.getElementById("enableMinPrice").addEventListener("change", (e) => {
+        document.getElementById("minPriceInputWrapper").style.display = e.target.checked ? "block" : "none";
+        applyTransformations();
+      });
+
+      document.getElementById("resetButton").addEventListener("click", () => {
+        basePrices = [...defaultPrices];
+        applyTransformations();
+      });
+
+      applyTransformations();
+    });
+  </script>
+
+</body>
+</html>

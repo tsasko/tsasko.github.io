@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Energy Price Curve Editor - Solargis Style</title>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" rel="stylesheet">
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/modules/exporting.js"></script>
+  <script src="https://code.highcharts.com/modules/draggable-points.js"></script>
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: #F5F5F5;
+      color: #212121;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      color: #E53935;
+      text-align: center;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    label {
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    input[type="range"] {
+      width: 200px;
+    }
+
+    input[type="number"], select {
+      width: 100px;
+      padding: 5px;
+      border: 1px solid #BDBDBD;
+      border-radius: 4px;
+    }
+
+    button {
+      background-color: #E53935;
+      color: #FFFFFF;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    button:hover {
+      background-color: #D32F2F;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+    th, td {
+      border: 1px solid #BDBDBD;
+      padding: 8px;
+      text-align: center;
+    }
+
+    th {
+      background-color: #EEEEEE;
+    }
+
+    #chartContainer {
+      height: 500px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Energy Price Curve Editor</h1>
+
+  <div class="controls">
+    <div class="control-group">
+      <label for="priceShift">Price Shift (€/MWh)</label>
+      <input type="range" id="priceShift" min="-100" max="200" value="0">
+    </div>
+    <div class="control-group">
+      <label for="stretch">Stretch (%)</label>
+      <input type="range" id="stretch" min="0" max="500" value="100">
+    </div>
+    <div class="control-group">
+      <label for="balance">Balance (%)</label>
+      <input type="range" id="balance" min="-100" max="100" value="0">
+    </div>
+    <div class="control-group">
+      <label><input type="checkbox" id="enableMinPrice"> Enable Minimum Price</label>
+      <input type="number" id="minPrice" value="0">
+    </div>
+    <div class="control-group">
+      <button id="resetButton">Reset</button>
+      <button id="exportButton">Export CSV</button>
+    </div>
+  </div>
+
+  <div id="chartContainer"></div>
+
+  <table>
+    <thead>
+    <tr>
+      <th>Hour</th>
+      <th>Price (€/MWh)</th>
+    </tr>
+    </thead>
+    <tbody id="priceTableBody"></tbody>
+  </table>
+</div>
+
+<script>
+  let basePrices = JSON.parse(localStorage.getItem("priceTemplate")) ||
+    [50,48,46,45,44,43,40,35,30,25,22,20,20,22,26,30,35,40,45,48,52,55,53,50];
+  const defaultPrices = [...basePrices];
+  let chart;
+
+  function updateChartAndTable() {
+    const shift = parseFloat(document.getElementById('priceShift').value);
+    const stretch = parseInt(document.getElementById('stretch').value);
+    const balance = parseInt(document.getElementById('balance').value);
+    const enableMin = document.getElementById('enableMinPrice').checked;
+    const minPrice = enableMin ? parseFloat(document.getElementById('minPrice').value) : -Infinity;
+
+    const prices = basePrices.map((val, i) => {
+      const hourFactor = (i - 12) / 12;
+      const balanceEffect = (balance / 100) * 20 * hourFactor;
+      const stretched = 50 + ((val - 50) * stretch / 100);
+      const final = Math.max(minPrice, Math.round((stretched + shift + balanceEffect) * 100) / 100);
+      return final;
+    });
+
+    const minY = Math.min(...prices);
+    chart.yAxis[0].update({
+      min: minY < 0 ? Math.floor(minY / 5) * 5 - 5 : null,
+      plotBands: minY < 0 ? [{ from: -100, to: 0, color: 'rgba(255, 0, 0, 0.05)' }] : []
+    });
+
+    chart.series[0].setData(prices);
+    updateTable(prices);
+  }
+
+  function updateTable(prices) {
+    const tableBody = document.getElementById("priceTableBody");
+    tableBody.innerHTML = "";
+    prices.forEach((p, i) => {
+      const row = `<tr><td>${i}:00</td><td>${p}</td></tr>`;
+      tableBody.innerHTML += row;
+    });
+  }
+
+  function exportToCSV(prices) {
+    let csv = 'Hour,Price (€/MWh)\n';
+    prices.forEach((p, i) => {
+      csv += `${i}:00,${p}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'price_curve.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    chart = Highcharts.chart('chartContainer', {
+      chart: { type: 'line' },
+      title: { text: null },
+      xAxis: {
+        categories: Array.from({ length: 24 }, (_, i) => `${i}:00`)
+      },
+      yAxis: {
+        title: { text: 'Price (€/MWh)' },
+        plotLines: [{
+          value: 0,
+          color: '#666',
+          width: 2,
+          dashStyle: 'Dash',
+          zIndex: 3,
+          label: {
+            text: '0 €/MWh',
+            align: 'right',
+            style: { color: '#666' },
+            x: -10
+          }
+        }]
+      },
+      plotOptions: {
+        series: {
+          dragDrop: { draggableY: true },
+          point: {
+            events: {
+              drop: function () {
+                basePrices[this.x] = this.y;
+                localStorage.setItem("priceTemplate", JSON.stringify(basePrices));
+                updateChartAndTable();
+              }
+            }
+          }
+        }
+      },
+      series: [{
+        name: 'Hourly Price',
+        data: [...basePrices]
+      }]
+    });
+
+    ["priceShift", "stretch", "balance", "minPrice", "enableMinPrice"].forEach(id => {
+      document.getElementById(id).addEventListener("input", updateChartAndTable);
+      document.getElementById(id).addEventListener("change", updateChartAndTable);
+    });
+
+    document.getElementById("resetButton").addEventListener("click", () => {
+      basePrices = [...defaultPrices];
+      localStorage.setItem("priceTemplate", JSON.stringify(basePrices));
+      updateChartAndTable();
+    });
+
+    document.getElementById("exportButton").addEventListener("click", () => {
+      const data = chart.series[0].data.map(p => p.y);
+      exportToCSV(data);
+    });
+
+    updateChartAndTable();
+  });
+</script>
+</body>
+</html>

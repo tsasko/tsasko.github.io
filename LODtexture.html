@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>BabylonJS TIN Lazy Loaded LOD Terrain Prototype – Bez cullingu</title>
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  </head>
+  <body style="margin: 0; overflow: hidden;">
+    <canvas id="renderCanvas" style="width: 100%; height: 100vh;"></canvas>
+    <script>
+      // Inicializácia engine a scény
+      var canvas = document.getElementById("renderCanvas");
+      var engine = new BABYLON.Engine(canvas, true);
+      var scene = new BABYLON.Scene(engine);
+      scene.clearColor = new BABYLON.Color4(0.7, 0.8, 1, 1);
+
+      // Kamera – ArcRotateCamera so stredom na (0, 0, 0)
+      var camera = new BABYLON.ArcRotateCamera("camera", -Math.PI/2, Math.PI/3, 80, new BABYLON.Vector3(0,0,0), scene);
+      camera.attachControl(canvas, true);
+
+      // Svetlo
+      var light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0,1,0), scene);
+
+      // Textúry – použi vlastné URL, ak potrebuješ
+      var highResTexture = new BABYLON.Texture("https://playground.babylonjs.com/textures/grass.jpg", scene);
+      var lowResTexture = new BABYLON.Texture("https://playground.babylonjs.com/textures/grass.png", scene);
+
+      // Parametre dlaždíc
+      var tileSize = 20;
+      var gridRes = 5;              // nižší rez pre overenie, potom môžeš zvýšiť
+      var loadRange = 3;
+      var unloadRange = loadRange + 1;
+      var maxHighResDistance = 30;
+
+      var tiles = {};
+
+      function createTINTile(i, j) {
+        var tileName = "tile_" + i + "_" + j;
+        var tile = new BABYLON.Mesh(tileName, scene);
+
+        var positions = [];
+        var indices = [];
+        var uvs = [];
+        var normals = [];
+
+        var halfSize = tileSize / 2;
+        var jitterAmount = tileSize / (gridRes * 4);
+        var centerX = i * tileSize;
+        var centerZ = j * tileSize;
+
+        // Vygeneruj body pre mriežku
+        for (var u = 0; u <= gridRes; u++) {
+          for (var v = 0; v <= gridRes; v++) {
+            var s = u / gridRes;
+            var t = v / gridRes;
+            var x = -halfSize + s * tileSize;
+            var z = -halfSize + t * tileSize;
+            // Jemný jitter pre nepravidelnosť
+            x += (Math.random() - 0.5) * jitterAmount;
+            z += (Math.random() - 0.5) * jitterAmount;
+            var globalX = centerX + x;
+            var globalZ = centerZ + z;
+            // Výška – s väčšou amplitúdou pre výraznejšie zvlnenie
+            var y = Math.sin(globalX * 0.1) * 5 + Math.cos(globalZ * 0.1) * 5;
+            positions.push(x, y, z);
+            uvs.push(s, t);
+          }
+        }
+
+        // Vygeneruj indexy pre trojuholníky
+        for (var u = 0; u < gridRes; u++) {
+          for (var v = 0; v < gridRes; v++) {
+            var index = u * (gridRes + 1) + v;
+            indices.push(index, index + 1, index + gridRes + 1);
+            indices.push(index + 1, index + gridRes + 2, index + gridRes + 1);
+          }
+        }
+
+        var vertexData = new BABYLON.VertexData();
+        vertexData.positions = positions;
+        vertexData.indices = indices;
+        vertexData.uvs = uvs;
+        BABYLON.VertexData.ComputeNormals(positions, indices, normals);
+        vertexData.normals = normals;
+        vertexData.applyToMesh(tile, true);
+
+        // Posuň dlaždicu do globálnej polohy
+        tile.position.x = centerX;
+        tile.position.z = centerZ;
+        tile.refreshBoundingInfo();
+
+        // Vytvor materiál a vypni culling
+        var mat = new BABYLON.StandardMaterial("mat_" + i + "_" + j, scene);
+        mat.diffuseTexture = lowResTexture;
+        mat.backFaceCulling = false;  // Zabezpečí, že dlaždica bude viditeľná zo všetkých strán.
+        tile.material = mat;
+
+        return tile;
+      }
+
+      function updateTiles() {
+        var center = camera.target;
+        var centerTileX = Math.round(center.x / tileSize);
+        var centerTileZ = Math.round(center.z / tileSize);
+        var neededKeys = {};
+
+        for (var i = centerTileX - loadRange; i <= centerTileX + loadRange; i++) {
+          for (var j = centerTileZ - loadRange; j <= centerTileZ + loadRange; j++) {
+            var key = i + "_" + j;
+            neededKeys[key] = true;
+            if (!tiles[key]) {
+              tiles[key] = createTINTile(i, j);
+            }
+          }
+        }
+
+        for (var key in tiles) {
+          var parts = key.split("_");
+          var ti = parseInt(parts[0]);
+          var tj = parseInt(parts[1]);
+          if (Math.abs(ti - centerTileX) > unloadRange || Math.abs(tj - centerTileZ) > unloadRange) {
+            tiles[key].dispose();
+            delete tiles[key];
+          }
+        }
+      }
+
+      function updateLOD() {
+        var center = camera.target;
+        var transformMatrix = scene.getTransformMatrix();
+        var frustumPlanes = BABYLON.Frustum.GetPlanes(transformMatrix);
+
+        for (var key in tiles) {
+          var tile = tiles[key];
+          tile.refreshBoundingInfo();
+          var inFrustum = tile.isInFrustum(frustumPlanes);
+          var dist = BABYLON.Vector3.Distance(tile.position, center);
+
+          if (inFrustum && dist < maxHighResDistance) {
+            tile.material.diffuseTexture = highResTexture;
+          } else {
+            tile.material.diffuseTexture = lowResTexture;
+          }
+        }
+      }
+
+      scene.registerBeforeRender(function() {
+        updateTiles();
+        updateLOD();
+      });
+
+      engine.runRenderLoop(function() {
+        scene.render();
+      });
+
+      window.addEventListener("resize", function() {
+        engine.resize();
+      });
+    </script>
+  </body>
+</html>

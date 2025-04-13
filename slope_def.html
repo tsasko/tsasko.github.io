@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slope Visualization Prototype</title>
+    <style>
+        .slope-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 400px;
+        }
+
+        .range-bar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider {
+            flex: 1;
+        }
+
+        .color-picker {
+            width: 40px;
+            height: 40px;
+            border: none;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <div class="slope-container" id="slopeContainer"></div>
+        <button onclick="addRange()">Add New Range</button>
+    </div>
+
+    <script>
+        let slopeRanges = [
+            { value: 5, color: '#FFFF00' }, // Initial range example
+            { value: 15, color: '#FFA500' },
+        ];
+
+        function renderSliders() {
+            const container = document.getElementById('slopeContainer');
+            container.innerHTML = ''; // Clear previous sliders
+
+            slopeRanges.forEach((range, index) => {
+                const rangeBar = document.createElement('div');
+                rangeBar.className = 'range-bar';
+
+                // Slider element
+                const slider = document.createElement('input');
+                slider.type = 'range';
+                slider.min = 0;
+                slider.max = 25;
+                slider.step = 0.1;
+                slider.value = range.value;
+                slider.className = 'slider';
+                slider.oninput = (event) => updateRange(index, event.target.value);
+
+                // Color picker element
+                const colorPicker = document.createElement('input');
+                colorPicker.type = 'color';
+                colorPicker.value = range.color;
+                colorPicker.className = 'color-picker';
+                colorPicker.oninput = (event) => updateColor(index, event.target.value);
+
+                // Delete button
+                const deleteButton = document.createElement('button');
+                deleteButton.innerText = 'Delete';
+                deleteButton.onclick = () => removeRange(index);
+
+                // Append elements to range bar
+                rangeBar.appendChild(slider);
+                rangeBar.appendChild(colorPicker);
+                rangeBar.appendChild(deleteButton);
+
+                // Append range bar to container
+                container.appendChild(rangeBar);
+            });
+        }
+
+        function addRange() {
+            const newValue = getDefaultNewRangeValue();
+            slopeRanges.push({ value: newValue, color: '#FF0000' });
+            renderSliders();
+        }
+
+        function removeRange(index) {
+            if (slopeRanges.length > 1) {
+                slopeRanges.splice(index, 1);
+                renderSliders();
+            }
+        }
+
+        function updateRange(index, newValue) {
+            slopeRanges[index].value = parseFloat(newValue);
+            sortRanges();
+            renderSliders();
+        }
+
+        function updateColor(index, color) {
+            slopeRanges[index].color = color;
+        }
+
+        function getDefaultNewRangeValue() {
+            if (slopeRanges.length === 0) return 5;
+            const max = Math.max(...slopeRanges.map(range => range.value));
+            return Math.min(max + 5, 25);
+        }
+
+        function sortRanges() {
+            slopeRanges.sort((a, b) => a.value - b.value);
+        }
+
+        // Initial render
+        renderSliders();
+    </script>
+</body>
+
+</html>

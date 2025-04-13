@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temperature Chart</title> //https://jsfiddle.net/fqebn1sc/7/
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/highcharts-more.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .label {
+            font-size: 16px;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+
+        #temperatureChart {
+            max-width: 360px;
+            height: 160px;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            background-color: grey;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="label">Temperature</div>
+        <div id="temperatureChart"></div>
+    </div>
+    <script>
+        // Definícia premenných pre absolútny rozsah a denný rozsah teplôt
+        const absoluteMinTemp = -8; // Absolútne minimum teploty
+        const absoluteMaxTemp = 31;  // Absolútne maximum teploty
+        const dailyMinTemp = 7;     // Minimálna denná teplota pre testovanie
+        const dailyMaxTemp = 26;     // Maximálna denná teplota pre testovanie
+        const currentTemp = 19;      // Aktuálna teplota pre testovanie
+
+        // Funkcia na generovanie gradientu podľa aktuálneho rozsahu
+        function getTemperatureGradient(minTemp, maxTemp) {
+            const colorStops = [
+                { temp: -12, color: '#001f3f' },
+                { temp: 0, color: '#0074d9' },
+                { temp: 15, color: '#2ecc40' },
+                { temp: 20, color: '#ffdc00' },
+                { temp: 25, color: '#ff851b' },
+                { temp: 31, color: '#ff4136' }
+            ];
+
+            const stops = colorStops.filter(stop => stop.temp >= minTemp && stop.temp <= maxTemp)
+                .map(stop => [
+                    (stop.temp - minTemp) / (maxTemp - minTemp),
+                    stop.color
+                ]);
+
+            return {
+                linearGradient: { x1: 0, x2: 0, y1: 1, y2: 0 },
+                stops: stops
+            };
+        }
+
+        // Konfigurácia Highcharts
+        Highcharts.chart('temperatureChart', {
+            chart: {
+                type: 'columnrange',
+                inverted: true,
+                height: 80
+            },
+            title: {
+                text: null
+            },
+            xAxis: {
+                categories: ['Temperature'],
+                visible: false
+            },
+            yAxis: [{
+                id: 'primary-axis',
+                min: absoluteMinTemp,
+                max: absoluteMaxTemp,
+                tickPositions: [absoluteMinTemp, dailyMinTemp, dailyMaxTemp, absoluteMaxTemp],
+                title: {
+                    text: null
+                },
+                labels: {
+                    useHTML: true,
+                    formatter: function () {
+                        if (this.value === dailyMinTemp || this.value === dailyMaxTemp) {
+                            return `<span style="font-size: 10px; position: relative; bottom:-10px">${this.value}°C</span>`;
+                        } else {
+                            return '';
+                        }
+                    }
+                },
+                gridLineWidth: 0,
+                tickColor: '#AFB8C3',
+                tickLength: 0,
+                lineWidth: 0,
+                tickWidth: 1
+            }, {
+                id: 'secondary-axis',
+                linkedTo: 0,
+                opposite: true,
+                min: absoluteMinTemp,
+                max: absoluteMaxTemp,
+                tickPositions: [absoluteMinTemp, absoluteMaxTemp],
+                title: {
+                    text: null
+                },
+                labels: {
+                    useHTML: true,
+                    y: 31,
+                    formatter: function () {
+                        if (this.value === absoluteMinTemp) {
+                            return `<span style="font-size: 10px; position: relative; left: 5px;">${this.value}°C</span>`;
+                        } else if (this.value === absoluteMaxTemp) {
+                            return `<span style="font-size: 10px; position: relative; left: -5px;">${this.value}°C</span>`;
+                        } else {
+                            return '';
+                        }
+                    }
+                },
+                gridLineWidth: 0,
+                tickColor: '#AFB8C3',
+                tickLength: 0,
+                lineWidth: 0,
+                tickWidth: 0
+            }],
+            tooltip: {
+                outside: true,
+                useHTML: true,
+                formatter: function () {
+                    const rangeText = `${this.point.low}°C - ${this.point.high}°C`;
+                    if (this.series.name === 'Absolute Temperature Range') {
+                        return `Absolute range: ${rangeText}`;
+                    } else if (this.series.name === 'Daily Temperature Range') {
+                        return `Day range: ${rangeText}`;
+                    } else if (this.series.name === 'Current Temperature') {
+                        return `Current temperature: ${this.y}°C`;
+                    }
+                },
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                borderRadius: 5,
+                style: {
+                    color: '#333',
+                    fontWeight: 'bold'
+                },
+                positioner: function (labelWidth, labelHeight, point) {
+                    return {
+                        x: point.plotX - labelWidth / 2,
+                        y: point.plotY - labelHeight - 10
+                    };
+                }
+            },
+            plotOptions: {
+                columnrange: {
+                    borderRadius: 4,
+                    pointWidth: 13,
+                    grouping: false,
+                    dataLabels: {
+                        enabled: false,
+                        format: '{y}°C',
+                        y: 50,
+                        x: 80
+                    }
+                },
+                scatter: {
+                    marker: {
+                        symbol: 'circle',
+                        radius: 6,
+                        lineWidth: 2,
+                        lineColor: '#000',
+                        fillColor: '#fff'
+                    }
+                }
+            },
+            legend: {
+                enabled: false
+            },
+            credits: {
+                enabled: false
+            },
+            series: [{
+                name: 'Absolute Temperature Range',
+                yAxis: 'secondary-axis',
+                data: [[absoluteMinTemp, absoluteMaxTemp]],
+                color: 'rgba(200, 200, 200, 0.4)',
+                borderWidth: 0
+            }, {
+                name: 'Daily Temperature Range',
+                yAxis: 'primary-axis',
+                data: [[dailyMinTemp, dailyMaxTemp]],
+                color: getTemperatureGradient(dailyMinTemp, dailyMaxTemp),
+                borderWidth: 0
+            }, {
+                type: 'scatter',
+                name: 'Current Temperature',
+                data: [[0, currentTemp]],
+                marker: {
+                    symbol: 'circle',
+                    radius: 8,
+                    lineWidth: 1,
+                    lineColor: '#bbb',
+                    fillColor: '#fff'
+                }
+            }]
+        });
+    </script>
+</body>
+</html>
