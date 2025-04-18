@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PV Layout – edge‑conforming tables</title>
+<style>html,body,#renderCanvas{width:100%;height:100%;margin:0;padding:0}</style>
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dat.gui@0.7.9/build/dat.gui.min.js"></script>
+</head>
+<body>
+<canvas id="renderCanvas"></canvas>
+<script>
+const CONFIG={
+  lat:48,azimuth:180,
+  table:{L:8,W:2,H:0.03},
+  numRows:20,numCols:20,
+  spacingRow:8.3,spacingIntra:12,rowClearance:0.5,GCRtarget:0.5,
+  heatMap:false,boomToggle:false,skyColor:'#87CEEB'
+};
+
+let engine,scene,camera,gui,terrainData;
+
+/* ---------- engine & scene ---------- */
+function initEngineScene(){
+  const c=document.getElementById('renderCanvas');
+  engine=new BABYLON.Engine(c,true);
+  scene=new BABYLON.Scene(engine);
+  scene.clearColor=BABYLON.Color3.FromHexString(CONFIG.skyColor);
+  camera=new BABYLON.ArcRotateCamera('cam',Math.PI/4,Math.PI/3,150,BABYLON.Vector3.Zero(),scene);
+  camera.attachControl(c,false);
+  new BABYLON.HemisphericLight('light',new BABYLON.Vector3(0,1,0),scene);
+}
+
+/* ---------- fake terrain ---------- */
+function perlin(){return Math.random()*2-1;}
+function buildTerrain(){
+  const N=201,size=1000;
+  let h=Array.from({length:N},()=>Array(N));
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++)h[i][j]=perlin()*30;
+  for(let k=0;k<4;k++){
+    const h2=h.map(r=>r.slice());
+    for(let i=1;i<N-1;i++)for(let j=1;j<N-1;j++){
+      let s=0;for(let di=-1;di<=1;di++)for(let dj=-1;dj<=1;dj++)s+=h[i+di][j+dj];
+      h2[i][j]=s/9;
+    }h=h2;
+  }
+  terrainData={h,N,size};
+  const pos=new Float32Array(N*N*3),inds=[],uvs=[];
+  for(let i=0;i<N;i++)for(let j=0;j<N;j++){
+    const idx=(i*N+j)*3;
+    pos[idx]=(i/(N-1)-0.5)*size;
+    pos[idx+1]=h[i][j];
+    pos[idx+2]=(j/(N-1)-0.5)*size;
+    uvs.push(i/(N-1),j/(N-1));
+  }
+  for(let i=0;i<N-1;i++)for(let j=0;j<N-1;j++){
+    const a=i*N+j,b=(i+1)*N+j,c=b+1,d=a+1;inds.push(a,b,d,b,c,d);
+  }
+  const norms=[];BABYLON.VertexData.ComputeNormals(pos,inds,norms);
+  const ground=new BABYLON.Mesh('ground',scene);
+  new BABYLON.VertexData({positions:pos,indices:inds,normals:norms,uvs}).applyToMesh(ground);
+  const m=new BABYLON.StandardMaterial('gmat',scene);
+  m.diffuseColor=new BABYLON.Color3(0.6,0.6,0.6);ground.material=m;
+}
+
+/* ---------- helpers ---------- */
+function getHeight(x,z){
+  const{h,N,size}=terrainData;
+  const u=(x/size+0.5)*(N-1),v=(z/size+0.5)*(N-1);
+  const i0=Math.floor(u),j0=Math.floor(v),du=u-i0,dv=v-j0;
+  const a=h[i0]?.[j0]||0,b=h[i0+1]?.[j0]||a,c=h[i0]?.[j0+1]||a,d=h[i0+1]?.[j0+1]||a;
+  return a*(1-du)*(1-dv)+b*du*(1-dv)+c*(1-du)*dv+d*du*dv;
+}
+
+/* ---------- tables ---------- */
+function spawnTables(){
+  scene.meshes.filter(m=>m.metadata==='table').forEach(m=>m.dispose());
+
+  const rows=CONFIG.numRows,cols=CONFIG.numCols;
+  const colSp=CONFIG.table.W+CONFIG.spacingIntra;
+  const rowSp=(CONFIG.spacingRow!=='auto')?Number(CONFIG.spacingRow)
+             :CONFIG.table.L/CONFIG.GCRtarget + CONFIG.rowClearance;
+
+  const az=CONFIG.azimuth*Math.PI/180;
+  const lenDir=new BABYLON.Vector3(Math.cos(az),0,Math.sin(az)).normalize();   // dĺžka
+  const widDir=new BABYLON.Vector3(-lenDir.z,0,lenDir.x).normalize();          // šírka
+  const halfH=CONFIG.table.H/2, halfW=CONFIG.table.W/2;
+
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const cx=lenDir.x*(c-(cols-1)/2)*colSp + widDir.x*(r-(rows-1)/2)*rowSp;
+      const cz=lenDir.z*(c-(cols-1)/2)*colSp + widDir.z*(r-(rows-1)/2)*rowSp;
+
+      /* dve výšky pod spodnou hranou (ľavý a pravý roh) */
+      const pLx=cx - widDir.x*halfW, pLz=cz - widDir.z*halfW;
+      const pRx=cx + widDir.x*halfW, pRz=cz + widDir.z*halfW;
+      const hL=getHeight(pLx,pLz), hR=getHeight(pRx,pRz);
+      const dH=hR-hL;
+
+      /* sklon okolo osi dĺžky – len to, koľko treba */
+      const baseSlope=Math.atan2(dH,CONFIG.table.W);            // podpísaná
+      const crossY=Math.sign(BABYLON.Vector3.Cross(lenDir,widDir).y||1); // ±1
+      const tiltAroundLen=baseSlope*crossY;                     // opravené znamenko
+
+      const qYaw=BABYLON.Quaternion.RotationAxis(BABYLON.Vector3.Up(),az);
+      const qTilt=BABYLON.Quaternion.RotationAxis(lenDir,tiltAroundLen);
+      const q=qTilt.multiply(qYaw);
+
+      /* stred do priemeru výšok + ½ H */
+      const cy=(hL+hR)/2 + halfH;
+
+      const box=BABYLON.MeshBuilder.CreateBox(`t${r}_${c}`,{
+        width:CONFIG.table.W,depth:CONFIG.table.L,height:CONFIG.table.H},scene);
+      box.position.set(cx,cy,cz);
+      box.rotationQuaternion=q;
+      const mat=new BABYLON.StandardMaterial(`m${r}_${c}`,scene);
+      mat.diffuseColor=new BABYLON.Color3(0.2,0.2,0.7);box.material=mat;
+      box.metadata='table';
+    }
+  }
+}
+
+/* ---------- GUI ---------- */
+function initGUI(){
+  gui=new dat.GUI();
+  const l=gui.addFolder('Layout');
+  l.add(CONFIG.table,'L',8,24).onChange(spawnTables);
+  l.add(CONFIG.table,'W',2,8).onChange(spawnTables);
+  l.add(CONFIG,'numRows',1,20,1).onChange(spawnTables);
+  l.add(CONFIG,'numCols',1,20,1).onChange(spawnTables);
+  l.add(CONFIG,'spacingRow').onFinishChange(spawnTables);
+  l.add(CONFIG,'spacingIntra',4,20).onChange(spawnTables);
+  l.add(CONFIG,'GCRtarget',0.1,1).onChange(spawnTables);
+
+  const p=gui.addFolder('Physics');
+  p.add(CONFIG,'azimuth',0,359).onChange(spawnTables);
+  p.add(CONFIG,'rowClearance',0,5).onChange(spawnTables);
+
+  gui.addColor(CONFIG,'skyColor').onChange(c=>scene.clearColor=BABYLON.Color3.FromHexString(c));
+}
+
+/* ---------- runtime ---------- */
+initEngineScene();
+buildTerrain();
+initGUI();
+spawnTables();
+engine.runRenderLoop(()=>scene.render());
+addEventListener('resize',()=>engine.resize());
+</script>
+</body>
+</html>

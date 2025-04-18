@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>PV Layout – wire terrain, slim tables, clearance height, tilt</title>
+  <style>html,body,#renderCanvas{width:100%;height:100%;margin:0;padding:0}</style>
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dat.gui@0.7.9/build/dat.gui.min.js"></script>
+</head>
+<body>
+<canvas id="renderCanvas"></canvas>
+<script>
+// -------- CONFIG (defaults) --------
+var CONFIG={
+  lat:48,
+  azimuth:0,
+  table:{L:8,W:2,H:0.03},      // 3 cm thick
+  numRows:20,
+  numCols:20,
+  spacingRow:4.3,
+  spacingIntra:6.2,
+  rowClearance:1.54,
+  clearanceHeight:1.5,           // NEW – vertical gap above terrain
+  tilt:15,                     // Tilt angle around long edge axis (0–90°)
+  GCRtarget:0.5,
+  skyColor:'#87CEEB'
+};
+
+var engine,scene,camera,gui,terrainData;
+
+// -------- ENGINE & CAMERA --------
+function initScene(){
+  var canvas=document.getElementById('renderCanvas');
+  engine=new BABYLON.Engine(canvas,true);
+  scene=new BABYLON.Scene(engine);
+  scene.clearColor=BABYLON.Color3.FromHexString(CONFIG.skyColor);
+
+  camera=new BABYLON.ArcRotateCamera('cam',Math.PI/4,Math.PI/3,800,new BABYLON.Vector3(0,0,0),scene);
+  camera.attachControl(canvas,false);
+  new BABYLON.HemisphericLight('light',new BABYLON.Vector3(0,1,0),scene);
+}
+
+// -------- TERRAIN (wireframe) --------
+function perlin(){return Math.random()*2-1;}
+function buildTerrain(){
+  var N=201, size=1000;
+  var h=new Array(N);
+  for(var i=0;i<N;i++){ h[i]=new Array(N); for(var j=0;j<N;j++)h[i][j]=perlin()*30; }
+  for(var s=0;s<4;s++){
+    var h2=h.map(function(r){return r.slice();});
+    for(i=1;i<N-1;i++) for(j=1;j<N-1;j++){
+      var sum=0; for(var di=-1;di<=1;di++) for(var dj=-1;dj<=1;dj++) sum+=h[i+di][j+dj];
+      h2[i][j]=sum/9;
+    }
+    h=h2;
+  }
+  terrainData={h:h,N:N,size:size};
+
+  var positions=new Float32Array(N*N*3);
+  var indices=new Uint32Array((N-1)*(N-1)*6);
+  var p=0, t=0;
+  for(i=0;i<N;i++) for(j=0;j<N;j++){
+    positions[p++]=(i/(N-1)-0.5)*size;
+    positions[p++]=h[i][j];
+    positions[p++]=(j/(N-1)-0.5)*size;
+  }
+  for(i=0;i<N-1;i++) for(j=0;j<N-1;j++){
+    var a=i*N+j, b=(i+1)*N+j, c=b+1, d=a+1;
+    indices[t++]=a; indices[t++]=b; indices[t++]=d;
+    indices[t++]=b; indices[t++]=c; indices[t++]=d;
+  }
+  var normals=new Float32Array(positions.length);
+  BABYLON.VertexData.ComputeNormals(positions,indices,normals);
+  var vd=new BABYLON.VertexData();
+  vd.positions=positions; vd.indices=indices; vd.normals=normals;
+  var ground=new BABYLON.Mesh('ground',scene); vd.applyToMesh(ground);
+  var mat=new BABYLON.StandardMaterial('wire',scene);
+  mat.wireframe=true; mat.emissiveColor=new BABYLON.Color3(1,1,1);
+  mat.backFaceCulling=false; mat.disableLighting=true; ground.material=mat;
+}
+
+// -------- UTILS --------
+function getHeight(x,z){
+  var h=terrainData.h,N=terrainData.N,size=terrainData.size;
+  var u=(x/size+0.5)*(N-1),v=(z/size+0.5)*(N-1);
+  var i=Math.floor(u),j=Math.floor(v),du=u-i,dv=v-j;
+  var a=h[i][j], b=h[i+1]?h[i+1][j]:a, c=h[i][j+1]!==undefined?h[i][j+1]:a, d=h[i+1]?h[i+1][j+1]:a;
+  return a*(1-du)*(1-dv)+b*du*(1-dv)+c*(1-du)*dv+d*du*dv;
+}
+
+// -------- TABLES --------
+function spawnTables(){
+  scene.meshes.filter(function(m){return m.metadata==='table';}).forEach(function(m){m.dispose();});
+
+  var rows=CONFIG.numRows,cols=CONFIG.numCols;
+  var colSpacing=CONFIG.table.W+CONFIG.spacingIntra;
+  var rowSpacing=CONFIG.spacingRow;
+  var halfW=CONFIG.table.W/2, halfL=CONFIG.table.L/2, halfH=CONFIG.table.H/2;
+
+  var az=CONFIG.azimuth*Math.PI/180;
+  var dirL=new BABYLON.Vector3(Math.cos(az),0,Math.sin(az));
+  var dirW=new BABYLON.Vector3(-dirL.z,0,dirL.x);
+
+  for(var r=0;r<rows;r++){
+    for(var c=0;c<cols;c++){
+      var cx=dirL.x*(c-(cols-1)/2)*colSpacing + dirW.x*(r-(rows-1)/2)*rowSpacing;
+      var cz=dirL.z*(c-(cols-1)/2)*colSpacing + dirW.z*(r-(rows-1)/2)*rowSpacing;
+
+      var hL=getHeight(cx-dirW.x*halfW,cz-dirW.z*halfW);
+      var hR=getHeight(cx+dirW.x*halfW,cz+dirW.z*halfW);
+      var hB=getHeight(cx-dirL.x*halfL,cz-dirL.z*halfL);
+      var hF=getHeight(cx+dirL.x*halfL,cz+dirL.z*halfL);
+
+      var vW=dirW.clone().scale(CONFIG.table.W); vW.y=hR-hL;
+      var vL=dirL.clone().scale(CONFIG.table.L); vL.y=hF-hB;
+      var normal=BABYLON.Vector3.Cross(vW,vL).normalize();
+
+      var projL=dirL.subtract(normal.scale(BABYLON.Vector3.Dot(dirL,normal)));
+      if(projL.lengthSquared()<1e-6) projL=dirL.clone(); projL.normalize();
+      var projW=BABYLON.Vector3.Cross(normal,projL).normalize();
+      var rotMat= BABYLON.Matrix.Identity();
+      BABYLON.Matrix.FromXYZAxesToRef(projW,normal,projL,rotMat);
+      var rotQ=new BABYLON.Quaternion();
+      BABYLON.Quaternion.FromRotationMatrixToRef(rotMat,rotQ);
+
+      // apply tilt around long edge axis (projected L)
+      var tiltRad = CONFIG.tilt * Math.PI/180;
+      var axis = projL.clone().normalize();
+      var qTilt = BABYLON.Quaternion.RotationAxis(axis, tiltRad);
+      var finalRotQ = qTilt.multiply(rotQ);
+
+      var cy=(hL+hR)/2 + halfH + CONFIG.clearanceHeight;
+
+      var box=BABYLON.MeshBuilder.CreateBox('t_'+r+'_'+c,{
+        width:CONFIG.table.W,
+        depth:CONFIG.table.L,
+        height:CONFIG.table.H
+      },scene);
+      box.position.set(cx,cy,cz);
+      box.rotationQuaternion=finalRotQ;
+      var matTable=new BABYLON.StandardMaterial('mat_'+r+'_'+c,scene);
+      matTable.diffuseColor=new BABYLON.Color3(0.2,0.2,0.8);
+      matTable.specularColor=new BABYLON.Color3(0,0,0);
+      box.material=matTable;
+      box.metadata='table';
+    }
+  }
+}
+
+// -------- GUI --------
+function initGUI(){
+  gui=new dat.GUI({width:280});
+  var fL=gui.addFolder('Layout');
+  fL.add(CONFIG.table,'L',4,24).onChange(spawnTables);
+  fL.add(CONFIG.table,'W',1,8).onChange(spawnTables);
+  fL.add(CONFIG,'numRows',1,40,1).onChange(spawnTables);
+  fL.add(CONFIG,'numCols',1,40,1).onChange(spawnTables);
+  fL.add(CONFIG,'spacingRow',1,20).step(0.1).onChange(spawnTables);
+  fL.add(CONFIG,'spacingIntra',1,20).onChange(spawnTables);
+
+  var fP=gui.addFolder('Physics');
+  fP.add(CONFIG,'azimuth',0,359).onChange(spawnTables);
+  fP.add(CONFIG,'rowClearance',0,5).onChange(spawnTables);
+  fP.add(CONFIG,'clearanceHeight',0,10).step(0.1).name('Clearance height').onChange(spawnTables);
+  fP.add(CONFIG,'tilt',0,90,1).name('Tilt').onChange(spawnTables);
+
+  gui.addColor(CONFIG,'skyColor').onChange(function(c){scene.clearColor=BABYLON.Color3.FromHexString(c);});
+}
+
+// -------- START --------
+initScene();
+buildTerrain();
+initGUI();
+spawnTables();
+engine.runRenderLoop(function(){scene.render();});
+window.addEventListener('resize',function(){engine.resize();});
+</script>
+</body>
+</html>
