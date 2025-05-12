@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Babylon.js Real 3D Terrain Mesh</title>
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <style>
+    html, body { margin: 0; padding: 0; overflow: hidden; }
+    #renderCanvas { width: 100vw; height: 100vh; display: block; }
+    #upload { position: absolute; z-index: 10; top: 10px; left: 10px; background: white; padding: 8px; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <input type="file" id="upload" accept="image/png" />
+  <label style="position:absolute; z-index:10; top:50px; left:10px; background:white; padding:6px; border-radius:4px;">
+    <input type="checkbox" id="wireframeToggle" /> Wireframe
+  </label>
+  <canvas id="renderCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("renderCanvas");
+    const engine = new BABYLON.Engine(canvas, true);
+    // Nastavenie štýlu plátna pre absolútnu pozíciu a 100% veľkosť
+    engine.getRenderingCanvas().style.position = "absolute";
+    engine.getRenderingCanvas().style.top = "0";
+    engine.getRenderingCanvas().style.left = "0";
+    engine.getRenderingCanvas().style.width = "100%";
+    engine.getRenderingCanvas().style.height = "100%";
+
+    const scene = new BABYLON.Scene(engine);
+    scene.clearColor = new BABYLON.Color3(0.9, 0.95, 1.0);
+    // Nastavenie autoClear a autoClearDepthAndStencil
+    scene.autoClear = true;
+    scene.autoClearDepthAndStencil = true;
+
+    const camera = new BABYLON.ArcRotateCamera("cam", Math.PI / 2, Math.PI / 3, 500, new BABYLON.Vector3(0, 0, 0), scene);
+    camera.minZ = 0.1;
+    camera.maxZ = 100000;
+    camera.lowerRadiusLimit = 1;
+    camera.upperRadiusLimit = 10000;
+    camera.panningSensibility = 10;
+    camera.wheelDeltaPercentage = 0.03;
+    camera.attachControl(canvas, true);
+    // Nastavenie kamery podľa požiadavky
+    camera.useAutoRotationBehavior = false;
+    camera.inertia = 0.5;
+    camera.allowUpsideDown = true;
+
+    new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 1, 0), scene);
+
+    document.getElementById("upload").addEventListener("change", function (evt) {
+      const file = evt.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onload = () => generateMeshFromImage(img);
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    function generateMeshFromImage(img) {
+      const width = img.width;
+      const height = img.height;
+
+      const canvas2D = document.createElement("canvas");
+      canvas2D.width = width;
+      canvas2D.height = height;
+      const ctx = canvas2D.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      const data = ctx.getImageData(0, 0, width, height).data;
+
+      const scale = 4.5; // každý pixel predstavuje 4.5 metra
+
+      const positions = [];
+      const indices = [];
+      const normals = [];
+
+      for (let z = 0; z < height; z++) {
+        for (let x = 0; x < width; x++) {
+          const i = (z * width + x) * 4;
+          const elev = -((data[i] * 256 * 256 + data[i + 1] * 256 + data[i + 2]) * 0.1 - 10000);
+          positions.push(x * scale, -elev, (height - 1 - z) * scale);
+        }
+      }
+
+      for (let z = 0; z < height - 1; z++) {
+        for (let x = 0; x < width - 1; x++) {
+          const a = z * width + x;
+          const b = a + 1;
+          const c = a + width;
+          const d = c + 1;
+          indices.push(a, b, c);
+          indices.push(b, d, c);
+        }
+      }
+
+      const customMesh = new BABYLON.Mesh("terrain", scene);
+      const vertexData = new BABYLON.VertexData();
+
+      vertexData.positions = positions;
+      vertexData.indices = indices;
+      BABYLON.VertexData.ComputeNormals(positions, indices, normals);
+      vertexData.normals = normals;
+
+      vertexData.applyToMesh(customMesh);
+      customMesh.position.x = -(width * scale) / 2;
+      customMesh.position.z = -(height * scale) / 2;
+
+      const mat = new BABYLON.StandardMaterial("mat", scene);
+      // Wireframe toggle setup
+      const checkbox = document.getElementById("wireframeToggle");
+      checkbox.addEventListener("change", () => {
+        mat.wireframe = checkbox.checked;
+      });
+      mat.wireframe = checkbox.checked;
+      mat.backFaceCulling = false;
+      mat.diffuseColor = new BABYLON.Color3(1, 1, 1);
+      mat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 0.5); // zvýrazní povrch
+      mat.specularColor = new BABYLON.Color3(0, 0, 0); // žiadne lesky
+      mat.disableLighting = false;
+      customMesh.material = mat;
+    }
+
+    engine.runRenderLoop(() => scene.render());
+    window.addEventListener("resize", () => engine.resize());
+  </script>
+</body>
+</html>

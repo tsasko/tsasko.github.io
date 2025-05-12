@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Babylon Parametric Prototype – single file</title>
+  <style>
+    html,body{margin:0;height:100%;overflow:hidden;font-family:sans-serif}
+    #wrap{display:flex;height:100%}
+    #sidebar{width:240px;background:#f5f5f5;padding:8px;overflow:auto}
+    #renderCanvas{flex:1;outline:none}
+    button{margin:4px 0}
+    label{display:inline-block;width:110px}
+    input{width:80px}
+  </style>
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+</head>
+<body>
+  <div id="wrap">
+    <div id="sidebar">
+      <button id="addBtn">Pridať objekt</button>
+      <select id="typeSel">
+        <option value="container">Kontajner</option>
+        <option value="chimney">Komín</option>
+        <option value="turbine">Veterná turbína</option>
+      </select>
+      <div id="params"></div>
+    </div>
+    <canvas id="renderCanvas"></canvas>
+  </div>
+
+<script>
+/* ---------- terrain ---------- */
+function buildTerrain(scene,{w,d,maxH,sub=256}){
+  const g=BABYLON.MeshBuilder.CreateGround("t",{width:w,height:d,subdivisions:sub},scene);
+  const pos=g.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+  for(let i=0;i<pos.length;i+=3)pos[i+1]=(Math.random()-0.5)*maxH;
+  g.updateVerticesData(BABYLON.VertexBuffer.PositionKind,pos);
+  g.getH=(x,z)=>{const c=Math.floor(x/w*sub),r=Math.floor(z/d*sub);return pos[((r*(sub+1)+c)*3)+1]||0};
+  return g;
+}
+
+/* ---------- base class ---------- */
+class Param{
+  constructor(scene,terrain){this.sc=scene;this.t=terrain;this.o=new BABYLON.Vector3(500,0,500)}
+  place(){const y=this.t.getH(this.o.x,this.o.z);this.m.position.set(this.o.x,y,this.o.z)}
+  setHi(h){this.m.outlineWidth=h?0.05:0}
+  upd(){this.m.dispose();this.make();this.place()}
+}
+
+/* ---------- objects ---------- */
+class Container extends Param{
+  constructor(s,t){super(s,t);this.p={len:6,w:2.44,h:2.59,az:0};this.make();this.place()}
+  make(){const p=this.p;this.m=BABYLON.MeshBuilder.CreateBox("c",{width:p.len,depth:p.w,height:p.h},this.sc);
+    this.m.rotation.y=p.az*Math.PI/180;this.m.material=new BABYLON.StandardMaterial("m",this.sc)}
+}
+class Chimney extends Param{
+  constructor(s,t){super(s,t);this.p={bot:4,top:2,h:30};this.make();this.place()}
+  make(){const p=this.p;this.m=BABYLON.MeshBuilder.CreateCylinder("k",{diameterBottom:p.bot,diameterTop:p.top,height:p.h,tessellation:24},this.sc)
+    ;this.m.material=new BABYLON.StandardMaterial("m2",this.sc)}
+}
+class Turbine extends Param{
+  constructor(s,t){super(s,t);this.p={h:80,d:4,b:40,n:3};this.make();this.place()}
+  make(){const p=this.p;const root=new BABYLON.TransformNode("r",this.sc);
+    const tow=BABYLON.MeshBuilder.CreateCylinder("t",{height:p.h,diameter:p.d,tessellation:24},this.sc);tow.position.y=p.h/2;tow.parent=root;
+    const hub=BABYLON.MeshBuilder.CreateSphere("h",{diameter:p.d*1.2},this.sc);hub.position.y=p.h;hub.parent=root;
+    for(let i=0;i<p.n;i++){const bl=BABYLON.MeshBuilder.CreateBox("b"+i,{width:p.b,height:p.d*0.3,depth:p.d*0.1},this.sc);
+      bl.position.set(p.b/2,0,0);bl.parent=hub;hub.rotate(BABYLON.Vector3.Up(),2*Math.PI*i/p.n)}
+    root.getChildMeshes().forEach(m=>m.material=new BABYLON.StandardMaterial("m3",this.sc));
+    this.m=root;
+  }
+}
+
+/* ---------- scene ---------- */
+const canvas=document.getElementById("renderCanvas");
+const eng=new BABYLON.Engine(canvas,true);
+const sc=new BABYLON.Scene(eng);
+sc.clearColor=new BABYLON.Color3(0.8,0.9,1);
+new BABYLON.HemisphericLight("l",new BABYLON.Vector3(0,1,0),sc);
+const cam=new BABYLON.ArcRotateCamera("cam",Math.PI/4,1,1500,new BABYLON.Vector3(500,0,500),sc);
+cam.attachControl(canvas,true);
+const terr=buildTerrain(sc,{w:1000,d:1000,maxH:60});
+
+/* ---------- UI ---------- */
+const objs=[];let sel=null;
+const addBtn=document.getElementById("addBtn"),typeSel=document.getElementById("typeSel"),pr=document.getElementById("params");
+
+function rebuild(){
+  pr.innerHTML="";
+  if(!sel)return;
+  Object.entries(sel.p).forEach(([k,v])=>{
+    const div=document.createElement("div");
+    div.innerHTML=`<label>${k}</label><input type="number" step="any" value="${v}"/>`;
+    const inp=div.querySelector("input");
+    inp.oninput=()=>{sel.p[k]=parseFloat(inp.value);sel.upd()}
+    pr.appendChild(div);
+  });
+}
+
+function select(o){if(sel)sel.setHi(false);sel=o;if(sel)sel.setHi(true);rebuild()}
+
+addBtn.onclick=()=>{let o;
+  switch(typeSel.value){case"container":o=new Container(sc,terr);break;
+    case"chimney":o=new Chimney(sc,terr);break;default:o=new Turbine(sc,terr);}
+  objs.push(o);select(o);
+};
+
+/* pick */
+sc.onPointerObservable.add(pi=>{
+  if(pi.pickInfo?.hit){
+    const m=pi.pickInfo.pickedMesh;
+    const o=objs.find(x=>x.m===m||m.isDescendantOf?.(x.m));
+    if(o)select(o);
+  }
+});
+
+/* drag in XZ */
+let dragging=false;
+sc.onPointerObservable.add(pi=>{
+  if(pi.type===BABYLON.PointerEventTypes.POINTERDOWN&&sel){dragging=true}
+  if(pi.type===BABYLON.PointerEventTypes.POINTERUP){dragging=false}
+  if(pi.type===BABYLON.PointerEventTypes.POINTERMOVE&&dragging&&sel){
+    const p=pi.pickInfo.pickedPoint;if(p){sel.o.x=p.x;sel.o.z=p.z;sel.place()}
+  }
+});
+
+eng.runRenderLoop(()=>sc.render());
+window.addEventListener("resize",()=>eng.resize());
+</script>
+</body>
+</html>
