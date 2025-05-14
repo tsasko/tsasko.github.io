@@ -83,6 +83,14 @@ function buildTerrain(){
   var mat=new BABYLON.StandardMaterial('wire',scene);
   mat.wireframe=true; mat.emissiveColor=new BABYLON.Color3(1,1,1);
   mat.backFaceCulling=false; mat.disableLighting=true; ground.material=mat;
+
+  // Create invisible collision mesh for teleportation
+  var teleportFloor = ground.clone("teleportFloor");
+  teleportFloor.isPickable = true;
+  teleportFloor.checkCollisions = true;
+  teleportFloor.material = new BABYLON.StandardMaterial("invisibleMat", scene);
+  teleportFloor.material.alpha = 0;
+  teleportFloor.metadata = { xrFloor: true };
 }
 
 // -------- UTILS --------
@@ -195,6 +203,12 @@ async function enableXR() {
     defaultTargetMeshOptions: {
       disableAnimation: true
     }
+  });
+
+  // Enable joystick movement
+  xr.baseExperience.featuresManager.enableFeature(BABYLON.WebXRFeatureName.MOVEMENT, "stable", {
+    xrInput: xr.input,
+    movementSpeed: 1.5
   });
 
   // Enable pointer selection
