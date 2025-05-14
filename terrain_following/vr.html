@@ -240,15 +240,34 @@ async function enableXR() {
   panelTexture.addControl(button3D);
 
   // --- Experimental FlyCam Control ---
+  let flycamEnabled = false;
   const flyAnchor = new BABYLON.TransformNode("flyAnchor", scene);
   flyAnchor.position = new BABYLON.Vector3(0, 5, -10);
-  xr.baseExperience.camera.parent = flyAnchor;
+
+  if (flycamEnabled) {
+    xr.baseExperience.camera.parent = flyAnchor;
+  } else {
+    xr.baseExperience.camera.parent = null;
+  }
+
+  let wasPressed = false;
 
   scene.onBeforeRenderObservable.add(() => {
     const input = xr.input;
     input.controllers.forEach((controller) => {
       const gp = controller.inputSource.gamepad;
-      if (!gp || gp.axes.length < 4) return;
+      if (!gp) return;
+
+      // Toggle flycam mode with A button (button 0)
+      const isPressed = gp.buttons[0]?.pressed;
+      if (isPressed && !wasPressed) {
+        flycamEnabled = !flycamEnabled;
+        xr.baseExperience.camera.parent = flycamEnabled ? flyAnchor : null;
+        console.log("FlyCam mode:", flycamEnabled ? "ON" : "OFF");
+      }
+      wasPressed = isPressed;
+
+      if (!flycamEnabled || gp.axes.length < 4) return;
 
       const x = gp.axes[2]; // Right stick horizontal (rotate Y)
       const y = gp.axes[3]; // Right stick vertical (rotate X)
