@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Soiling Losses with Cleaning Impact</title>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+    }
+
+    #soilingLosses {
+      width: 600px;
+      height: 300px;
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Soiling Losses with Cleaning Impact</h2>
+  <div id="soilingLosses"></div>
+
+  <script>
+    const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'];
+
+    const valuesWithoutCleaning = [4.2, 3.8, 3.5, 2.5, 2.0, 1.5, 1.7, 1.8, 2.0, 2.1, 3.0, 4.2];
+    const valuesAfterCleaning =   [2.0, 2.1, 2.5, 2.0, 1.8, 1.5, 1.6, 1.6, 1.9, 2.0, 2.7, 3.2];
+    const valuesEliminated = valuesWithoutCleaning.map((raw, i) => raw - valuesAfterCleaning[i]);
+
+    Highcharts.chart('soilingLosses', {
+      chart: {
+        type: 'column'
+      },
+      title: { text: null },
+      credits: { enabled: false },
+      legend: { enabled: false },
+      xAxis: [{
+        categories: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+        crosshair: true,
+        tickLength: 0,
+        labels: {
+          y: 15,
+          style: { fontSize: '10px' },
+          rotation: 0,
+          autoRotation: false,
+          maxStaggerLines: 1
+        }
+      }],
+      yAxis: {
+        min: 0,
+        tickPositioner: function () {
+          let max = Math.ceil(Math.max(...valuesWithoutCleaning));
+          if (max % 2 !== 0) max += 1;
+          return [0, Math.round(max / 2), max];
+        },
+        labels: {
+          format: '{value}%',
+          style: { fontSize: '10px' }
+        },
+        title: { text: null }
+      },
+      tooltip: {
+        shared: true,
+        useHTML: true,
+        formatter: function () {
+          const monthName = months[this.points[0].point.index];
+          const actual = this.points.find(p => p.series.name === 'Actual')?.y ?? 0;
+          const eliminated = this.points.find(p => p.series.name === 'Eliminated')?.y ?? 0;
+          return `<b>${monthName}</b><br/>
+                  Losses after cleaning: ${actual.toFixed(1)}%<br/>
+                  Eliminated by cleaning: ${eliminated.toFixed(1)}%`;
+        }
+      },
+      plotOptions: {
+        column: {
+          stacking: 'normal',
+          borderWidth: 0,
+          pointPadding: 0.03,
+          groupPadding: 0
+        }
+      },
+      series: [{
+        name: 'Eliminated',
+        data: valuesEliminated,
+        color: 'rgba(139, 87, 42, 0.3)' // svetlejšia hnedá pre vrch
+      }, {
+        name: 'Actual',
+        data: valuesAfterCleaning,
+        color: {
+          linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+          stops: [
+            [0, '#8B572A'],   // tmavohnedá hore
+            [1, '#D6A86C']    // svetlejšia dole
+          ]
+        }
+      }]
+    });
+  </script>
+
+</body>
+</html>
