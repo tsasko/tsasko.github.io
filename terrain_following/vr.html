@@ -77,6 +77,9 @@ function buildTerrain(){
   var vd=new BABYLON.VertexData();
   vd.positions=positions; vd.indices=indices; vd.normals=normals;
   var ground=new BABYLON.Mesh('ground',scene); vd.applyToMesh(ground);
+  ground.isPickable = true;
+  ground.checkCollisions = true;
+  ground.metadata = { xrFloor: true };
   var mat=new BABYLON.StandardMaterial('wire',scene);
   mat.wireframe=true; mat.emissiveColor=new BABYLON.Color3(1,1,1);
   mat.backFaceCulling=false; mat.disableLighting=true; ground.material=mat;
@@ -199,24 +202,35 @@ async function enableXR() {
     xrInput: xr.input
   });
 
-  // Button to toggle camera type (FPV vs Fly mode)
-  const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
-  const button = BABYLON.GUI.Button.CreateSimpleButton("but1", "Toggle Camera Mode");
-  button.width = "220px";
-  button.height = "60px";
-  button.color = "white";
-  button.cornerRadius = 10;
-  button.background = "gray";
-  button.top = "20px";
-  button.left = "20px";
-  button.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_LEFT;
-  button.verticalAlignment = BABYLON.GUI.Control.VERTICAL_ALIGNMENT_TOP;
-  button.onPointerUpObservable.add(function() {
+  // Create 3D GUI panel in VR
+  const anchor = new BABYLON.TransformNode("guiAnchor", scene);
+  anchor.position = new BABYLON.Vector3(0, 1.5, 2); // In front of user
+
+  const guiPlane = BABYLON.MeshBuilder.CreatePlane("guiPlane", {width: 0.5, height: 0.3}, scene);
+  guiPlane.parent = anchor;
+  guiPlane.position.z = -1;
+
+  const panelTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(guiPlane);
+
+  const button3D = BABYLON.GUI.Button.CreateSimpleButton("but3D", "Toggle Camera Mode");
+  button3D.width = 1;
+  button3D.height = 0.4;
+  button3D.color = "white";
+  button3D.fontSize = 80;
+  button3D.background = "gray";
+  button3D.onPointerUpObservable.add(() => {
     if (xr.baseExperience.camera instanceof BABYLON.WebXRCamera) {
       xr.baseExperience.camera.useXRStandardRenderingPipeline = !xr.baseExperience.camera.useXRStandardRenderingPipeline;
     }
   });
-  advancedTexture.addControl(button);
+
+  panelTexture.addControl(button3D);
+
+  // Attach the panel to user head position
+  xr.baseExperience.camera.onAfterWorldMatrixUpdateObservable.add(() => {
+    anchor.position = xr.baseExperience.camera.position.add(xr.baseExperience.camera.getForwardRay().direction.scale(2));
+    anchor.rotation = xr.baseExperience.camera.absoluteRotation.toEulerAngles();
+  });
 }
 
 enableXR();
