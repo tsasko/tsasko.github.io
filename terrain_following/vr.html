@@ -76,20 +76,21 @@ function buildTerrain(){
   BABYLON.VertexData.ComputeNormals(positions,indices,normals);
   var vd=new BABYLON.VertexData();
   vd.positions=positions; vd.indices=indices; vd.normals=normals;
-  var ground=new BABYLON.Mesh('ground',scene); vd.applyToMesh(ground);
-  ground.isPickable = true;
-  ground.checkCollisions = true;
-  ground.metadata = { xrFloor: true };
+  var terrain=new BABYLON.Mesh('terrain',scene); vd.applyToMesh(terrain);
+  terrain.isPickable = true;
+  terrain.checkCollisions = true;
+  terrain.metadata = { xrFloor: true };
   var mat=new BABYLON.StandardMaterial('wire',scene);
   mat.wireframe=true; mat.emissiveColor=new BABYLON.Color3(1,1,1);
-  mat.backFaceCulling=false; mat.disableLighting=true; ground.material=mat;
+  mat.backFaceCulling=false; mat.disableLighting=true; terrain.material=mat;
 
-  // Create invisible collision mesh for teleportation
-  var teleportFloor = ground.clone("teleportFloor");
+  // Create visible collision mesh for teleportation
+  var teleportFloor = terrain.clone("teleportFloor");
   teleportFloor.isPickable = true;
   teleportFloor.checkCollisions = true;
-  teleportFloor.material = new BABYLON.StandardMaterial("invisibleMat", scene);
-  teleportFloor.material.alpha = 0;
+  teleportFloor.material = new BABYLON.StandardMaterial("teleportMat", scene);
+  teleportFloor.material.diffuseColor = new BABYLON.Color3(0.2, 1, 0.2);
+  teleportFloor.material.alpha = 0.6;
   teleportFloor.metadata = { xrFloor: true };
 }
 
@@ -198,7 +199,7 @@ async function enableXR() {
 
   // Enable teleportation
   xr.baseExperience.featuresManager.enableFeature(BABYLON.WebXRFeatureName.TELEPORTATION, "stable", {
-    floorMeshes: scene.meshes.filter(m => m.name === "ground"),
+    floorMeshes: scene.meshes.filter(m => m.name === "teleportFloor"),
     useMainComponentOnly: true,
     defaultTargetMeshOptions: {
       disableAnimation: true
