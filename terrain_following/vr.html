@@ -197,36 +197,34 @@ async function enableXR() {
     optionalFeatures: true
   });
 
-  // Enable teleportation
-  xr.baseExperience.featuresManager.enableFeature(BABYLON.WebXRFeatureName.TELEPORTATION, "stable", {
-    floorMeshes: scene.meshes.filter(m => m.name === "teleportFloor"),
-    useMainComponentOnly: true,
-    defaultTargetMeshOptions: {
-      disableAnimation: true
-    }
-  });
-
-  // Enable joystick movement
-  xr.baseExperience.featuresManager.enableFeature(BABYLON.WebXRFeatureName.MOVEMENT, "stable", {
-    xrInput: xr.input,
-    movementSpeed: 1.5
-  });
-
   // Enable pointer selection
   xr.baseExperience.featuresManager.enableFeature(BABYLON.WebXRFeatureName.POINTER_SELECTION, "stable", {
     xrInput: xr.input
   });
 
-  // Create 3D GUI panel in VR
-  const anchor = new BABYLON.TransformNode("guiAnchor", scene);
-  anchor.position = new BABYLON.Vector3(0, 1.5, 2); // In front of user
+  // Enable teleportation
+  xr.baseExperience.featuresManager.enableFeature(BABYLON.WebXRFeatureName.TELEPORTATION, "stable", {
+    xrInput: xr.input,
+    floorMeshes: scene.meshes.filter(m => m.name === "teleportFloor"),
+    defaultTargetMeshOptions: {
+      disableAnimation: true
+    }
+  });
 
+  // Enable free movement with joystick
+  xr.baseExperience.featuresManager.enableFeature(BABYLON.WebXRFeatureName.MOVEMENT, "stable", {
+    xrInput: xr.input,
+    movementSpeed: 1.5,
+    movementOrientationFollowsViewerPose: true
+  });
+
+  // Optional: debug GUI panel in VR
+  const anchor = new BABYLON.TransformNode("guiAnchor", scene);
   const guiPlane = BABYLON.MeshBuilder.CreatePlane("guiPlane", {width: 0.5, height: 0.3}, scene);
   guiPlane.parent = anchor;
-  guiPlane.position.z = -1;
+  guiPlane.position = new BABYLON.Vector3(0, 1.5, 2);
 
   const panelTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateForMesh(guiPlane);
-
   const button3D = BABYLON.GUI.Button.CreateSimpleButton("but3D", "Toggle Camera Mode");
   button3D.width = 1;
   button3D.height = 0.4;
@@ -241,11 +239,13 @@ async function enableXR() {
 
   panelTexture.addControl(button3D);
 
-  // Attach the panel to user head position
+  // (Optional) Update anchor to follow user's gaze
+  /*
   xr.baseExperience.camera.onAfterWorldMatrixUpdateObservable.add(() => {
     anchor.position = xr.baseExperience.camera.position.add(xr.baseExperience.camera.getForwardRay().direction.scale(2));
     anchor.rotation = xr.baseExperience.camera.absoluteRotation.toEulerAngles();
   });
+  */
 }
 
 enableXR();
