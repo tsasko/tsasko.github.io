@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Soiling/Snow Losses – Yearly Trend</title>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    #yearlyLosses {
+      width: 632px;
+      height: 144px;
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <h3>Yearly Soiling/Snow Losses</h3>
+  <div id="yearlyLosses"></div>
+
+  <script>
+    var yearLabels = Array.from({ length: 2024 - 1994 + 1 }, (_, i) => (1994 + i).toString());
+
+    // Dummy data (randomized for prototyping); replace with real simulation values
+    var losses = yearLabels.map(() => parseFloat((Math.random() * 5).toFixed(1))); // 0–5% loss
+
+    Highcharts.chart('yearlyLosses', {
+      chart: {
+        type: 'column',
+        width: 632,
+        height: 144,
+        spacing: [10, 10, 10, 10]
+      },
+      title: {
+        text: null
+      },
+      credits: {
+        enabled: false
+      },
+      legend: {
+        enabled: false
+      },
+      xAxis: {
+        categories: yearLabels,
+        labels: {
+          style: {
+            fontSize: '9px'
+          },
+          rotation: -45
+        },
+        tickLength: 0
+      },
+      yAxis: {
+        min: 0,
+        maxPadding: 0.1,
+        title: {
+          text: null
+        },
+        labels: {
+          format: '{value}%',
+          style: {
+            fontSize: '9px'
+          }
+        },
+        tickAmount: 3
+      },
+      tooltip: {
+        useHTML: true,
+        formatter: function () {
+          const year = yearLabels[this.point.index];
+          return `<b>Year: ${year}</b><br/>Loss: ${this.y}%`;
+        }
+      },
+      plotOptions: {
+        column: {
+          borderWidth: 0,
+          pointPadding: 0.1,
+          groupPadding: 0.05
+        }
+      },
+      series: [{
+        name: 'Loss',
+        data: losses,
+        color: {
+          linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+          stops: [
+            [0, '#8B572A'],  // for soiling – switch to #005f99 for snow losses
+            [1, '#D6A86C']   // for soiling – switch to #b3d9ff for snow losses
+          ]
+        }
+      }]
+    });
+  </script>
+
+</body>
+</html>
