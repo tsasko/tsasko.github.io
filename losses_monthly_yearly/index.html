@@ -2,14 +2,39 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Soiling/Snow Losses – Yearly Trend</title>
+  <title>Monthly Losses – Yearly Trend</title>
   <script src="https://code.highcharts.com/highcharts.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
       padding: 20px;
     }
-    #yearlyLosses {
+    #controls {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+    .month-toggle {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 4px;
+    }
+    .month-toggle input[type="radio"] {
+      display: none;
+    }
+    .month-toggle label {
+      padding: 4px 8px;
+      font-size: 12px;
+      cursor: pointer;
+      background-color: #f0f0f0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .month-toggle input[type="radio"]:checked + label {
+      background-color: #8B572A;
+      color: white;
+    }
+    #monthlyLosses {
       width: 632px;
       height: 144px;
       margin: auto;
@@ -18,81 +43,95 @@
 </head>
 <body>
 
-  <h3>Yearly Soiling/Snow Losses</h3>
-  <div id="yearlyLosses"></div>
+  <h3 style="text-align:center">Monthly Losses Across Years</h3>
+  <div id="controls" class="month-toggle"></div>
+  <div id="monthlyLosses"></div>
 
   <script>
-    var yearLabels = Array.from({ length: 2024 - 1994 + 1 }, (_, i) => (1994 + i).toString());
+    const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'];
+    const years = Array.from({ length: 2024 - 1994 + 1 }, (_, i) => (1994 + i).toString());
 
-    // Dummy data (randomized for prototyping); replace with real simulation values
-    var losses = yearLabels.map(() => parseFloat((Math.random() * 5).toFixed(1))); // 0–5% loss
+    const monthlyData = months.map(() =>
+      years.map(() => parseFloat((Math.random() * 5).toFixed(1)))
+    );
 
-    Highcharts.chart('yearlyLosses', {
-      chart: {
-        type: 'column',
-        width: 632,
-        height: 144,
-        spacing: [10, 10, 10, 10]
-      },
-      title: {
-        text: null
-      },
-      credits: {
-        enabled: false
-      },
-      legend: {
-        enabled: false
-      },
-      xAxis: {
-        categories: yearLabels,
-        labels: {
-          style: {
-            fontSize: '9px'
+    const controlsDiv = document.getElementById('controls');
+    months.forEach((month, index) => {
+      const id = `month-${index}`;
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = 'month';
+      radio.id = id;
+      radio.checked = index === 0;
+      radio.onchange = () => renderChart(index);
+
+      const label = document.createElement('label');
+      label.setAttribute('for', id);
+      label.textContent = month.slice(0, 3);
+
+      controlsDiv.appendChild(radio);
+      controlsDiv.appendChild(label);
+    });
+
+    function renderChart(monthIndex) {
+      Highcharts.chart('monthlyLosses', {
+        chart: {
+          type: 'column',
+          width: 632,
+          height: 144,
+          spacing: [10, 10, 10, 10]
+        },
+        title: { text: null },
+        credits: { enabled: false },
+        legend: { enabled: false },
+        xAxis: {
+          categories: years,
+          labels: {
+            style: { fontSize: '9px' },
+            rotation: -45
           },
-          rotation: -45
+          tickLength: 0
         },
-        tickLength: 0
-      },
-      yAxis: {
-        min: 0,
-        maxPadding: 0.1,
-        title: {
-          text: null
+        yAxis: {
+          min: 0,
+          maxPadding: 0.1,
+          title: { text: null },
+          labels: {
+            format: '{value}%',
+            style: { fontSize: '9px' }
+          },
+          tickAmount: 3
         },
-        labels: {
-          format: '{value}%',
-          style: {
-            fontSize: '9px'
+        tooltip: {
+          useHTML: true,
+          formatter: function () {
+            const year = years[this.point.index];
+            return `<b>Year: ${year}</b><br/>Loss: ${this.y}%`;
           }
         },
-        tickAmount: 3
-      },
-      tooltip: {
-        useHTML: true,
-        formatter: function () {
-          const year = yearLabels[this.point.index];
-          return `<b>Year: ${year}</b><br/>Loss: ${this.y}%`;
-        }
-      },
-      plotOptions: {
-        column: {
-          borderWidth: 0,
-          pointPadding: 0.1,
-          groupPadding: 0.05
-        }
-      },
-      series: [{
-        name: 'Loss',
-        data: losses,
-        color: {
-          linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
-          stops: [
-            [0, '#8B572A'],  // for soiling – switch to #005f99 for snow losses
-            [1, '#D6A86C']   // for soiling – switch to #b3d9ff for snow losses
-          ]
-        }
-      }]
-    });
+        plotOptions: {
+          column: {
+            borderWidth: 0,
+            pointPadding: 0.1,
+            groupPadding: 0.05
+          }
+        },
+        series: [{
+          name: 'Loss',
+          data: monthlyData[monthIndex],
+          color: {
+            linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+            stops: [
+              [0, '#8B572A'],
+              [1, '#D6A86C']
+            ]
+          }
+        }]
+      });
+    }
+
+    renderChart(0);
   </script>
 
 </body>
