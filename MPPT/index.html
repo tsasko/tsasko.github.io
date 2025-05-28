@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>MPPT DC Voltage Gauge</title>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/highcharts-more.js"></script>
+  <script src="https://code.highcharts.com/modules/solid-gauge.js"></script>
+  <style>
+    #container {
+      width: 600px;
+      height: 400px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <script>
+    const VDC_MIN = 500;
+    const VDC_MAX = 1500;
+    const MPPT_MIN = 930;
+    const MPPT_MAX = 1300;
+    const BUFFER = 100;
+    const RANGE_MIN = VDC_MIN - BUFFER;
+    const RANGE_MAX = VDC_MAX + BUFFER;
+    const VALUE = 947.2;
+
+    Highcharts.chart('container', {
+      chart: {
+        type: 'gauge',
+        plotBorderWidth: 0,
+        plotBackgroundColor: null,
+        plotBackgroundImage: null,
+        height: '60%'
+      },
+
+      title: {
+        text: 'DC Voltage Load'
+      },
+
+      pane: {
+        startAngle: -90,
+        endAngle: 90,
+        background: [
+          {
+            outerRadius: '100%',
+            innerRadius: '90%',
+            backgroundColor: '#FF5252',
+            borderWidth: 0,
+            shape: 'arc',
+            from: RANGE_MIN,
+            to: VDC_MIN
+          },
+          {
+            outerRadius: '100%',
+            innerRadius: '90%',
+            backgroundColor: '#FFA726',
+            borderWidth: 0,
+            shape: 'arc',
+            from: VDC_MIN,
+            to: MPPT_MIN
+          },
+          {
+            outerRadius: '100%',
+            innerRadius: '90%',
+            backgroundColor: '#66BB6A',
+            borderWidth: 0,
+            shape: 'arc',
+            from: MPPT_MIN,
+            to: MPPT_MAX
+          },
+          {
+            outerRadius: '100%',
+            innerRadius: '90%',
+            backgroundColor: '#FFA726',
+            borderWidth: 0,
+            shape: 'arc',
+            from: MPPT_MAX,
+            to: VDC_MAX
+          },
+          {
+            outerRadius: '100%',
+            innerRadius: '90%',
+            backgroundColor: '#FF5252',
+            borderWidth: 0,
+            shape: 'arc',
+            from: VDC_MAX,
+            to: RANGE_MAX
+          }
+        ]
+      },
+
+      yAxis: {
+        min: RANGE_MIN,
+        max: RANGE_MAX,
+        tickInterval: 200,
+        tickPosition: 'inside',
+        tickLength: 10,
+        tickColor: '#666',
+        labels: {
+          step: 2,
+          rotation: 'auto'
+        },
+        title: {
+          text: 'Voltage (V)'
+        }
+      },
+
+      series: [{
+        name: 'Voltage',
+        data: [VALUE],
+        tooltip: {
+          valueSuffix: ' V'
+        },
+        dial: {
+          radius: '100%',
+          backgroundColor: 'black',
+          baseWidth: 2,
+          topWidth: 1,
+          baseLength: '0%',
+          rearLength: '0%'
+        },
+        pivot: {
+          backgroundColor: 'black',
+          radius: 4
+        },
+        dataLabels: {
+          format: '<span style="font-size:18px">{y} V</span>'
+        }
+      }]
+    });
+  </script>
+</body>
+</html>

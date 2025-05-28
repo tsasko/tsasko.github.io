@@ -56,6 +56,8 @@
       years.map(() => parseFloat((Math.random() * 5).toFixed(1)))
     );
 
+    const globalMax = Math.ceil(Math.max(...monthlyData.flat()));
+
     const controlsDiv = document.getElementById('controls');
     months.forEach((month, index) => {
       const id = `month-${index}`;
@@ -74,61 +76,70 @@
       controlsDiv.appendChild(label);
     });
 
+    let chart;
+
     function renderChart(monthIndex) {
-      Highcharts.chart('monthlyLosses', {
-        chart: {
-          type: 'column',
-          width: 632,
-          height: 144,
-          spacing: [10, 10, 10, 10]
-        },
-        title: { text: null },
-        credits: { enabled: false },
-        legend: { enabled: false },
-        xAxis: {
-          categories: years,
-          labels: {
-            style: { fontSize: '9px' },
-            rotation: -45
+      const data = monthlyData[monthIndex];
+
+      if (!chart) {
+        chart = Highcharts.chart('monthlyLosses', {
+          chart: {
+            type: 'column',
+            width: 632,
+            height: 144,
+            spacing: [10, 10, 10, 10]
           },
-          tickLength: 0
-        },
-        yAxis: {
-          min: 0,
-          maxPadding: 0.1,
           title: { text: null },
-          labels: {
-            format: '{value}%',
-            style: { fontSize: '9px' }
+          credits: { enabled: false },
+          legend: { enabled: false },
+          xAxis: {
+            categories: years,
+            labels: {
+              style: { fontSize: '9px' },
+              rotation: -45
+            },
+            tickLength: 0
           },
-          tickAmount: 3
-        },
-        tooltip: {
-          useHTML: true,
-          formatter: function () {
-            const year = years[this.point.index];
-            return `<b>Year: ${year}</b><br/>Loss: ${this.y}%`;
-          }
-        },
-        plotOptions: {
-          column: {
-            borderWidth: 0,
-            pointPadding: 0.1,
-            groupPadding: 0.05
-          }
-        },
-        series: [{
-          name: 'Loss',
-          data: monthlyData[monthIndex],
-          color: {
-            linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
-            stops: [
-              [0, '#8B572A'],
-              [1, '#D6A86C']
-            ]
-          }
-        }]
-      });
+          yAxis: {
+            min: 0,
+            max: globalMax,
+            title: { text: null },
+            labels: {
+              format: '{value}%',
+              style: { fontSize: '9px' }
+            },
+            tickAmount: 3
+          },
+          tooltip: {
+            useHTML: true,
+            formatter: function () {
+              const year = years[this.point.index];
+              return `<b>Year: ${year}</b><br/>Loss: ${this.y}%`;
+            }
+          },
+          plotOptions: {
+            column: {
+              borderWidth: 0,
+              pointPadding: 0.1,
+              groupPadding: 0.05
+            }
+          },
+          series: [{
+            name: 'Loss',
+            data: data,
+            color: {
+              linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+              stops: [
+                [0, '#8B572A'],
+                [1, '#D6A86C']
+              ]
+            }
+          }]
+        });
+      } else {
+        chart.yAxis[0].update({ max: globalMax });
+        chart.series[0].setData(data, true, { duration: 300 });
+      }
     }
 
     renderChart(0);

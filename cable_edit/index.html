@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>AC Cable Routing Prototype with Vertex Editing</title>
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+  <style>
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    #renderCanvas { width: 100%; height: 100%; touch-action: none; }
+  </style>
+</head>
+<body>
+  <canvas id="renderCanvas"></canvas>
+  <script>
+    const canvas = document.getElementById('renderCanvas');
+    const engine = new BABYLON.Engine(canvas, true);
+    const scene = new BABYLON.Scene(engine);
+
+    const camera = new BABYLON.ArcRotateCamera('camera1', -Math.PI / 2, Math.PI / 3, 30, BABYLON.Vector3.Zero(), scene);
+    camera.attachControl(canvas, true);
+
+    const light = new BABYLON.HemisphericLight('light1', new BABYLON.Vector3(1, 1, 0), scene);
+
+    const nodeMaterial = new BABYLON.StandardMaterial('nodeMat', scene);
+    nodeMaterial.diffuseColor = new BABYLON.Color3(0.2, 0.7, 1);
+
+    const nodes = [
+      { name: 'Inverter', position: new BABYLON.Vector3(-10, 0, -10) },
+      { name: 'Inverter Transformer', position: new BABYLON.Vector3(0, 0, 0) },
+      { name: 'Power Transformer', position: new BABYLON.Vector3(10, 0, -5) },
+      { name: 'Grid Connection', position: new BABYLON.Vector3(15, 0, 10) }
+    ];
+
+    const nodeMeshes = nodes.map(node => {
+      const sphere = BABYLON.MeshBuilder.CreateSphere(node.name, { diameter: 1 }, scene);
+      sphere.position = node.position;
+      sphere.material = nodeMaterial;
+      return sphere;
+    });
+
+    const cables = [
+      [nodes[0].position.clone(), nodes[1].position.clone()],
+      [nodes[1].position.clone(), nodes[2].position.clone()],
+      [nodes[2].position.clone(), nodes[3].position.clone()]
+    ];
+
+    let cableMeshes = [];
+    let vertexSpheres = [];
+
+    function createCable(index) {
+      const path = cables[index];
+      if (cableMeshes[index]) cableMeshes[index].dispose();
+      cableMeshes[index] = BABYLON.MeshBuilder.CreateLines(`cable${index}`, {
+        points: path,
+        updatable: true
+      }, scene);
+      cableMeshes[index].color = new BABYLON.Color3(1, 0.5, 0);
+    }
+
+    function createVertexSpheres(index) {
+      const path = cables[index];
+      for (let i = 0; i < path.length; i++) {
+        const v = path[i];
+        const sphere = BABYLON.MeshBuilder.CreateSphere(`vs${index}_${i}`, { diameter: 0.4 }, scene);
+        sphere.position = v;
+        sphere.material = new BABYLON.StandardMaterial(`mat${index}_${i}`, scene);
+        sphere.material.diffuseColor = new BABYLON.Color3(0, 1, 0);
+        const dragBehavior = new BABYLON.PointerDragBehavior({ dragPlaneNormal: new BABYLON.Vector3(0, 1, 0) });
+        sphere.addBehavior(dragBehavior);
+        dragBehavior.onDragObservable.add((event) => {
+          v.x = event.dragPlanePoint.x;
+          v.y = event.dragPlanePoint.y;
+          v.z = event.dragPlanePoint.z;
+          createCable(index);
+        });
+        vertexSpheres.push(sphere);
+      }
+    }
+
+    for (let i = 0; i < cables.length; i++) {
+      createCable(i);
+      createVertexSpheres(i);
+    }
+
+    engine.runRenderLoop(() => {
+      scene.render();
+    });
+
+    window.addEventListener('resize', () => {
+      engine.resize();
+    });
+  </script>
+</body>
+</html>
