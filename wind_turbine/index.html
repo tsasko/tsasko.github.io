@@ -13,11 +13,26 @@
 </head>
 <body>
 <div id="ui">
-  <label>Base Diameter: <input id="baseDiameter" type="range" min="1" max="10" step="0.1" value="4"></label>
-  <label>Top Diameter: <input id="topDiameter" type="range" min="0.1" max="4" step="0.1" value="0.5"></label>
-  <label>Height: <input id="height" type="range" min="10" max="100" step="1" value="50"></label>
-  <label>Rotor Head Ratio: <input id="rotorHeadRatio" type="range" min="1" max="10" step="0.1" value="5"></label>
-  <label>Blade Length: <input id="bladeLength" type="range" min="2" max="40" step="0.1" value="10"></label>
+  <label>Base Diameter:
+    <input id="baseDiameter" type="range" min="2" max="8" step="0.1" value="4">
+    <input id="baseDiameterNumber" type="number" min="2" max="8" step="0.1" value="4">
+  </label>
+  <label>Top Diameter:
+    <input id="topDiameter" type="range" min="2" max="4" step="0.1" value="1.5">
+    <input id="topDiameterNumber" type="number" min="2" max="4" step="0.1" value="1.5">
+  </label>
+  <label>Height:
+    <input id="height" type="range" min="60" max="150" step="1" value="80">
+    <input id="heightNumber" type="number" min="60" max="150" step="1" value="80">
+  </label>
+  <label>Nacelle Ratio:
+    <input id="nacelleRatio" type="range" min="1" max="10" step="0.1" value="5">
+    <input id="nacelleRatioNumber" type="number" min="1" max="10" step="0.1" value="5">
+  </label>
+  <label>Blade Length:
+    <input id="bladeLength" type="range" min="40" max="90" step="0.1" value="60">
+    <input id="bladeLengthNumber" type="number" min="40" max="90" step="0.1" value="60">
+  </label>
 </div>
 <canvas id="renderCanvas"></canvas>
 <script>
@@ -35,7 +50,9 @@ const createScene = () => {
 
   let turbineBody, nacelle, rotor, blades = [];
 
-  function createTurbine(baseDiameter, topDiameter, height, rotorHeadRatio, bladeLength) {
+  // All dimensions are considered in meters.
+
+  function createTurbine(baseDiameter, topDiameter, height, nacelleRatio, bladeLength) {
     if (turbineBody) turbineBody.dispose();
     if (nacelle) nacelle.dispose();
     if (rotor) rotor.dispose();
@@ -51,14 +68,15 @@ const createScene = () => {
     }, scene);
     turbineBody.position.y = height / 2;
 
-    // Base nacelle proportions
+    // Base nacelle proportions in meters
     const nacelleBaseWidth = topDiameter * 1.5;
     const nacelleBaseHeight = topDiameter * 1.5;
     const nacelleBaseDepth = topDiameter * 5;
 
-    const nacelleWidth = nacelleBaseWidth * rotorHeadRatio / 3;
-    const nacelleHeight = nacelleBaseHeight * rotorHeadRatio / 3;
-    const nacelleDepth = nacelleBaseDepth * rotorHeadRatio / 3;
+    // Scale nacelle dimensions by nacelleRatio parameter
+    const nacelleWidth = nacelleBaseWidth * nacelleRatio / 3;
+    const nacelleHeight = nacelleBaseHeight * nacelleRatio / 3;
+    const nacelleDepth = nacelleBaseDepth * nacelleRatio / 3;
 
     nacelle = BABYLON.MeshBuilder.CreateBox("nacelle", {
       width: nacelleWidth,
@@ -113,18 +131,29 @@ const createScene = () => {
   // Initial turbine
   createTurbine(4, 0.5, 50, 7, 30);
 
-  ["baseDiameter", "topDiameter", "height", "rotorHeadRatio", "bladeLength"].forEach(id => {
-    document.getElementById(id).addEventListener("input", update);
-  });
-
   function update() {
     const baseDiameter = parseFloat(document.getElementById("baseDiameter").value);
     const topDiameter = parseFloat(document.getElementById("topDiameter").value);
     const height = parseFloat(document.getElementById("height").value);
-    const rotorHeadRatio = parseFloat(document.getElementById("rotorHeadRatio").value);
+    const nacelleRatio = parseFloat(document.getElementById("nacelleRatio").value);
     const bladeLength = parseFloat(document.getElementById("bladeLength").value);
-    createTurbine(baseDiameter, topDiameter, height, rotorHeadRatio, bladeLength);
+    createTurbine(baseDiameter, topDiameter, height, nacelleRatio, bladeLength);
   }
+
+  function syncInput(id) {
+    const slider = document.getElementById(id);
+    const number = document.getElementById(id + "Number");
+
+    slider.addEventListener("input", () => {
+      number.value = slider.value;
+      update();
+    });
+    number.addEventListener("input", () => {
+      slider.value = number.value;
+      update();
+    });
+  }
+  ["baseDiameter", "topDiameter", "height", "nacelleRatio", "bladeLength"].forEach(syncInput);
 
   return scene;
 };
