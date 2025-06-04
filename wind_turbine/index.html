@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Parametric Wind Turbine</title>
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+  <style>
+    html, body, canvas { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
+    #ui { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(255,255,255,0.8); padding: 10px; border-radius: 8px; }
+    #ui label { display: block; margin-top: 5px; }
+  </style>
+</head>
+<body>
+<div id="ui">
+  <label>Base Diameter: <input id="baseDiameter" type="range" min="1" max="10" step="0.1" value="4"></label>
+  <label>Top Diameter: <input id="topDiameter" type="range" min="0.1" max="4" step="0.1" value="0.5"></label>
+  <label>Height: <input id="height" type="range" min="10" max="100" step="1" value="50"></label>
+  <label>Rotor Head Ratio: <input id="rotorHeadRatio" type="range" min="1" max="10" step="0.1" value="5"></label>
+  <label>Blade Length: <input id="bladeLength" type="range" min="2" max="40" step="0.1" value="10"></label>
+</div>
+<canvas id="renderCanvas"></canvas>
+<script>
+const canvas = document.getElementById("renderCanvas");
+const engine = new BABYLON.Engine(canvas, true);
+
+const createScene = () => {
+  const scene = new BABYLON.Scene(engine);
+  scene.clearColor = new BABYLON.Color3(0.9, 0.9, 1);
+
+  const camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 3, 100, new BABYLON.Vector3(0, 25, 0), scene);
+  camera.attachControl(canvas, true);
+
+  new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+
+  let turbineBody, nacelle, rotor, blades = [];
+
+  function createTurbine(baseDiameter, topDiameter, height, rotorHeadRatio, bladeLength) {
+    if (turbineBody) turbineBody.dispose();
+    if (nacelle) nacelle.dispose();
+    if (rotor) rotor.dispose();
+    blades.forEach(b => b.dispose());
+    blades = [];
+
+    // Tower
+    turbineBody = BABYLON.MeshBuilder.CreateCylinder("tower", {
+      diameterTop: topDiameter,
+      diameterBottom: baseDiameter,
+      height: height,
+      tessellation: 24
+    }, scene);
+    turbineBody.position.y = height / 2;
+
+    // Base nacelle proportions
+    const nacelleBaseWidth = topDiameter * 1.5;
+    const nacelleBaseHeight = topDiameter * 1.5;
+    const nacelleBaseDepth = topDiameter * 5;
+
+    const nacelleWidth = nacelleBaseWidth * rotorHeadRatio / 3;
+    const nacelleHeight = nacelleBaseHeight * rotorHeadRatio / 3;
+    const nacelleDepth = nacelleBaseDepth * rotorHeadRatio / 3;
+
+    nacelle = BABYLON.MeshBuilder.CreateBox("nacelle", {
+      width: nacelleWidth,
+      height: nacelleHeight,
+      depth: nacelleDepth
+    }, scene);
+    nacelle.position.y = height;
+    nacelle.position.z = 0;
+    nacelle.material = new BABYLON.StandardMaterial("nacelleMat", scene);
+    nacelle.material.diffuseColor = new BABYLON.Color3(0.8, 0.8, 0.8);
+
+    // Rotor
+    const rotorDiameter = Math.min(nacelleHeight, nacelleWidth);
+    const rotorLength = topDiameter * 0.8;
+
+    rotor = BABYLON.MeshBuilder.CreateCylinder("rotor", {
+      diameter: rotorDiameter,
+      height: rotorLength,
+      tessellation: 32
+    }, scene);
+    rotor.rotation.x = Math.PI / 2;
+    rotor.position.y = height;
+    rotor.position.z = -nacelleDepth / 2 - rotorLength / 2;
+    rotor.material = new BABYLON.StandardMaterial("rotorMat", scene);
+    rotor.material.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+
+    // Blades - 3 vertical, radiating from rotor center
+    for (let i = 0; i < 3; i++) {
+      const angle = i * (2 * Math.PI / 3);
+      const blade = BABYLON.MeshBuilder.CreateBox("blade", {
+        width: bladeLength,
+        height: rotorDiameter * 0.05,
+        depth: rotorDiameter * 0.2
+      }, scene);
+      blade.position = rotor.position.clone();
+      blade.rotation.y = angle;
+      blade.rotation.z = Math.PI / 2;
+      blade.translate(BABYLON.Axis.X, bladeLength / 2, BABYLON.Space.LOCAL);
+      blade.material = new BABYLON.StandardMaterial("bladeMat", scene);
+      blade.material.diffuseColor = new BABYLON.Color3(0.6, 0.6, 0.6);
+      blades.push(blade);
+    }
+  }
+
+  // Initial turbine
+  createTurbine(4, 0.5, 50, 5, 10);
+
+  ["baseDiameter", "topDiameter", "height", "rotorHeadRatio", "bladeLength"].forEach(id => {
+    document.getElementById(id).addEventListener("input", update);
+  });
+
+  function update() {
+    const baseDiameter = parseFloat(document.getElementById("baseDiameter").value);
+    const topDiameter = parseFloat(document.getElementById("topDiameter").value);
+    const height = parseFloat(document.getElementById("height").value);
+    const rotorHeadRatio = parseFloat(document.getElementById("rotorHeadRatio").value);
+    const bladeLength = parseFloat(document.getElementById("bladeLength").value);
+    createTurbine(baseDiameter, topDiameter, height, rotorHeadRatio, bladeLength);
+  }
+
+  return scene;
+};
+
+const scene = createScene();
+engine.runRenderLoop(() => scene.render());
+window.addEventListener("resize", () => engine.resize());
+</script>
+</body>
+</html>
