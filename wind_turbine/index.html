@@ -90,12 +90,11 @@ const createScene = () => {
       const angle = i * (2 * Math.PI / 3);
       const blade = BABYLON.MeshBuilder.CreateBox("blade", {
         width: bladeLength,
-        height: rotorDiameter * 0.05,
-        depth: rotorDiameter * 0.2
+        height: rotorDiameter * 0.2,
+        depth: rotorDiameter * 0.05
       }, scene);
       blade.position = rotor.position.clone();
-      blade.rotation.y = angle;
-      blade.rotation.z = Math.PI / 2;
+      blade.rotation.z = angle;
       blade.translate(BABYLON.Axis.X, bladeLength / 2, BABYLON.Space.LOCAL);
       blade.material = new BABYLON.StandardMaterial("bladeMat", scene);
       blade.material.diffuseColor = new BABYLON.Color3(0.6, 0.6, 0.6);
