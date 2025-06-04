@@ -82,28 +82,36 @@ const createScene = () => {
     rotor.rotation.x = Math.PI / 2;
     rotor.position.y = height;
     rotor.position.z = -nacelleDepth / 2 - rotorLength / 2;
-    rotor.material = new BABYLON.StandardMaterial("rotorMat", scene);
-    rotor.material.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.2);
+
+    // Shared material for tower, rotor, and blades
+    const sharedMat = new BABYLON.StandardMaterial("sharedMat", scene);
+    sharedMat.diffuseColor = new BABYLON.Color3(0.98, 0.98, 0.98);
+
+    turbineBody.material = sharedMat;
+    rotor.material = sharedMat;
+
+    const bladeMat = new BABYLON.StandardMaterial("bladeMat", scene);
+    bladeMat.diffuseColor = sharedMat.diffuseColor;
+    bladeMat.alpha = 0.3;
 
     // Blades - 3 vertical, radiating from rotor center
     for (let i = 0; i < 3; i++) {
       const angle = i * (2 * Math.PI / 3);
       const blade = BABYLON.MeshBuilder.CreateBox("blade", {
         width: bladeLength,
-        height: rotorDiameter * 0.2,
-        depth: rotorDiameter * 0.05
+        height: rotorDiameter * 0.8,
+        depth: rotorDiameter * 0.1
       }, scene);
       blade.position = rotor.position.clone();
       blade.rotation.z = angle;
       blade.translate(BABYLON.Axis.X, bladeLength / 2, BABYLON.Space.LOCAL);
-      blade.material = new BABYLON.StandardMaterial("bladeMat", scene);
-      blade.material.diffuseColor = new BABYLON.Color3(0.6, 0.6, 0.6);
+      blade.material = bladeMat;
       blades.push(blade);
     }
   }
 
   // Initial turbine
-  createTurbine(4, 0.5, 50, 5, 10);
+  createTurbine(4, 0.5, 50, 7, 30);
 
   ["baseDiameter", "topDiameter", "height", "rotorHeadRatio", "bladeLength"].forEach(id => {
     document.getElementById(id).addEventListener("input", update);
