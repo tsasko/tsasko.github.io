@@ -33,6 +33,12 @@
     <input id="bladeLength" type="range" min="40" max="90" step="0.1" value="60">
     <input id="bladeLengthNumber" type="number" min="40" max="90" step="0.1" value="60">
   </label>
+  <label>Sun Azimuth (°):
+    <input id="sunAzimuth" type="range" min="0" max="360" step="1" value="135">
+  </label>
+  <label>Sun Elevation (°):
+    <input id="sunElevation" type="range" min="0" max="90" step="1" value="45">
+  </label>
 </div>
 <canvas id="renderCanvas"></canvas>
 <script>
@@ -46,9 +52,41 @@ const createScene = () => {
   const camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 3, 100, new BABYLON.Vector3(0, 25, 0), scene);
   camera.attachControl(canvas, true);
 
-  new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+  // Lighting
+  const sunLightDirection = new BABYLON.Vector3(-1, -1, 0);
+  const sun = new BABYLON.DirectionalLight("sun", sunLightDirection, scene);
+  sun.position = new BABYLON.Vector3(100, 200, 100);
+  sun.intensity = 3.2;
+  function updateSunDirection() {
+    const azimuthDeg = parseFloat(document.getElementById("sunAzimuth").value);
+    const elevationDeg = parseFloat(document.getElementById("sunElevation").value);
+    const azimuth = BABYLON.Angle.FromDegrees(azimuthDeg).radians();
+    const elevation = BABYLON.Angle.FromDegrees(elevationDeg).radians();
+    const x = Math.cos(elevation) * Math.sin(azimuth);
+    const y = Math.sin(elevation);
+    const z = Math.cos(elevation) * Math.cos(azimuth);
+    sun.direction.set(-x, -y, -z);
+  }
+
+  const hemiLight = new BABYLON.HemisphericLight("hemiLight", new BABYLON.Vector3(0, 1, 0), scene);
+  hemiLight.intensity = 0.9;
+
+  const ground = BABYLON.MeshBuilder.CreateGround("ground", { width: 1800, height: 1800 }, scene);
+  ground.position.y = 0;
+  const groundTexture = new BABYLON.Texture("ground1.jpg", scene);
+  groundTexture.uScale = 1;
+  groundTexture.vScale = 1;
+
+  const groundMat = new BABYLON.StandardMaterial("groundMat", scene);
+  groundMat.diffuseTexture = groundTexture;
+  groundMat.specularColor = new BABYLON.Color3(0, 0, 0);
+  // groundMat.diffuseColor = new BABYLON.Color3(0.8, 0.8, 0.8);
+  ground.material = groundMat;
+  ground.receiveShadows = true;
 
   let turbineBody, nacelle, rotor, blades = [];
+  let rotorGroup;
+  let shadowGenerator;
 
   // All dimensions are considered in meters.
 
@@ -56,6 +94,7 @@ const createScene = () => {
     if (turbineBody) turbineBody.dispose();
     if (nacelle) nacelle.dispose();
     if (rotor) rotor.dispose();
+    if (rotorGroup) rotorGroup.dispose();
     blades.forEach(b => b.dispose());
     blades = [];
 
@@ -86,11 +125,14 @@ const createScene = () => {
     nacelle.position.y = height;
     nacelle.position.z = 0;
     nacelle.material = new BABYLON.StandardMaterial("nacelleMat", scene);
-    nacelle.material.diffuseColor = new BABYLON.Color3(0.8, 0.8, 0.8);
+    nacelle.material.diffuseColor = new BABYLON.Color3(0.98, 0.98, 0.98);
 
-    // Rotor
     const rotorDiameter = Math.min(nacelleHeight, nacelleWidth);
     const rotorLength = topDiameter * 0.8;
+
+    rotorGroup = new BABYLON.TransformNode("rotorGroup", scene);
+    rotorGroup.position.y = height;
+    rotorGroup.position.z = -nacelleDepth / 2 - rotorLength / 2;
 
     rotor = BABYLON.MeshBuilder.CreateCylinder("rotor", {
       diameter: rotorDiameter,
@@ -98,19 +140,32 @@ const createScene = () => {
       tessellation: 32
     }, scene);
     rotor.rotation.x = Math.PI / 2;
-    rotor.position.y = height;
-    rotor.position.z = -nacelleDepth / 2 - rotorLength / 2;
+    rotor.position = BABYLON.Vector3.Zero();
+    rotor.parent = rotorGroup;
 
-    // Shared material for tower, rotor, and blades
+    // Shared material for tower, rotor, and nacelle
     const sharedMat = new BABYLON.StandardMaterial("sharedMat", scene);
-    sharedMat.diffuseColor = new BABYLON.Color3(0.98, 0.98, 0.98);
+    sharedMat.diffuseTexture = new BABYLON.Texture("textures/Wallpaper001A_1K-JPG_Color.jpg", scene);
+    sharedMat.diffuseTexture.uScale = 5;
+    sharedMat.diffuseTexture.vScale = 5;
+    sharedMat.bumpTexture = new BABYLON.Texture("textures/Wallpaper001A_1K-JPG_NormalGL.jpg", scene);
+    sharedMat.bumpTexture.uScale = 5;
+    sharedMat.bumpTexture.vScale = 5;
+    sharedMat.specularTexture = new BABYLON.Texture("textures/Wallpaper001A_1K-JPG_Roughness.jpg", scene);
+    sharedMat.specularTexture.uScale = 5;
+    sharedMat.specularTexture.vScale = 5;
+    sharedMat.specularPower = 16;
+    sharedMat.useGlossinessFromSpecularMapAlpha = false;
+    sharedMat.ambientColor = new BABYLON.Color3(1, 1, 1);
+    sharedMat.specularColor = new BABYLON.Color3(0.2, 0.2, 0.2);
 
     turbineBody.material = sharedMat;
     rotor.material = sharedMat;
+    nacelle.material = sharedMat;
 
     const bladeMat = new BABYLON.StandardMaterial("bladeMat", scene);
     bladeMat.diffuseColor = sharedMat.diffuseColor;
-    bladeMat.alpha = 0.3;
+    bladeMat.alpha = 1;
 
     // Blades - 3 vertical, radiating from rotor center
     for (let i = 0; i < 3; i++) {
@@ -120,12 +175,24 @@ const createScene = () => {
         height: rotorDiameter * 0.8,
         depth: rotorDiameter * 0.1
       }, scene);
-      blade.position = rotor.position.clone();
+      blade.position = BABYLON.Vector3.Zero();
       blade.rotation.z = angle;
       blade.translate(BABYLON.Axis.X, bladeLength / 2, BABYLON.Space.LOCAL);
       blade.material = bladeMat;
+      blade.parent = rotorGroup;
       blades.push(blade);
     }
+
+    shadowGenerator = new BABYLON.ShadowGenerator(1024, sun);
+    shadowGenerator.useBlurExponentialShadowMap = true;
+    shadowGenerator.blurKernel = 32;
+    shadowGenerator.addShadowCaster(rotor);
+    blades.forEach(blade => shadowGenerator.addShadowCaster(blade));
+    // Ensure turbine body and nacelle cast shadows
+    shadowGenerator.addShadowCaster(turbineBody);
+    shadowGenerator.addShadowCaster(nacelle);
+    turbineBody.receiveShadows = true;
+    nacelle.receiveShadows = true;
   }
 
   // Initial turbine
@@ -155,6 +222,16 @@ const createScene = () => {
   }
   ["baseDiameter", "topDiameter", "height", "nacelleRatio", "bladeLength"].forEach(syncInput);
 
+  scene.registerBeforeRender(() => {
+    if (rotorGroup) {
+      rotorGroup.rotate(BABYLON.Axis.Z, 0.05, BABYLON.Space.LOCAL);
+    }
+  });
+
+  ["sunAzimuth", "sunElevation"].forEach(id => {
+    document.getElementById(id).addEventListener("input", updateSunDirection);
+  });
+  updateSunDirection();
   return scene;
 };
 
