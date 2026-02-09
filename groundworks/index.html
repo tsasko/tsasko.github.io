@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="sk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ESD widget – Groundwork balance (480px, hatch overhang + playground)</title>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <style>
+    :root{
+      --fg:#111827;
+      --muted:#6b7280;
+      --border:rgba(17,24,39,0.12);
+      --panel:#ffffff;
+      --cut:#e34b4b;
+      --cutStrong:#c93a3a;
+      --fill:#79be3a;
+      --fillStrong:#5aa626;
+    }
+
+    body{ margin:0; background:transparent; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:var(--fg); }
+
+    /* Demo wrapper (forces the 480px constraint) */
+    .demoWrap{ width:480px; padding:12px; }
+
+    .card{
+      position:relative;
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px;
+      box-sizing:border-box;
+    }
+
+    .row{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .title{
+      font-size:12px;
+      font-weight:700;
+      letter-spacing:0.06em;
+      text-transform:uppercase;
+      color:var(--muted);
+      line-height:1.1;
+      padding-top:2px;
+    }
+
+    /* Net badge is the primary decision output; NEVER ellipsize. */
+    .net{
+      border-radius:999px;
+      padding:6px 10px;
+      background:#f3f4f6;
+      color:var(--fg);
+      border:1px solid rgba(17,24,39,0.08);
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      text-align:right;
+      line-height:1.05;
+      max-width:150px;
+    }
+    .net .k{ font-size:10px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; opacity:0.9; }
+    .net .v{ font-size:14px; font-weight:900; font-variant-numeric:tabular-nums; }
+    .net .u{ font-size:10px; font-weight:800; opacity:0.9; margin-top:1px; }
+
+    #container{ width:100%; height:64px; margin-top:8px; }
+
+    /* Compact, single-line triplet: no wrapped units, no stacked rows. */
+    .triplet{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:8px;
+      align-items:center;
+      margin-top:10px;
+      font-variant-numeric:tabular-nums;
+    }
+    .cell{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      white-space:nowrap;
+      min-width:0;
+    }
+    .cell.mid{ justify-content:center; }
+    .cell.right{ justify-content:flex-end; }
+    .num{ font-size:13px; font-weight:900; }
+    .unit{ font-size:11px; color:var(--muted); font-weight:800; }
+
+    .pill{
+      display:inline-flex; align-items:center; justify-content:center;
+      width:18px; height:18px; border-radius:999px;
+      background:#f3f4f6; color:rgba(17,24,39,0.88); font-weight:900;
+      border:1px solid rgba(17,24,39,0.10);
+      line-height:1;
+      flex:0 0 auto;
+    }
+
+    .swap{
+      width:18px; height:18px; border-radius:999px;
+      display:inline-flex; align-items:center; justify-content:center;
+      background:#eef2ff;
+      border:1px solid rgba(17,24,39,0.10);
+      color:rgba(17,24,39,0.75);
+      font-weight:900;
+      font-size:12px;
+      flex:0 0 auto;
+    }
+
+    /* Tooltip */
+    .tip{
+      position:absolute;
+      z-index:20;
+      pointer-events:none;
+      opacity:0;
+      transform:translateY(4px);
+      transition:opacity 120ms ease, transform 120ms ease;
+      background:rgba(17,24,39,0.92);
+      color:#fff;
+      padding:8px 10px;
+      border-radius:10px;
+      font-size:11px;
+      line-height:1.25;
+      max-width:240px;
+      box-shadow:0 8px 24px rgba(0,0,0,0.18);
+    }
+    .tip.on{ opacity:1; transform:translateY(0); }
+
+    /* Playground (demo) */
+    .controls{
+      margin-top:12px;
+      padding-top:10px;
+      border-top:1px solid rgba(17,24,39,0.08);
+    }
+    .ctrlRow{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:8px; }
+    .lbl{ font-size:11px; color:var(--muted); width:36px; font-weight:700; }
+    input[type="range"]{ width:100%; }
+    .numInput{
+      width:78px;
+      border:1px solid rgba(17,24,39,0.14);
+      border-radius:8px;
+      padding:6px 8px;
+      font-size:12px;
+      text-align:right;
+      background:#fff;
+      font-variant-numeric:tabular-nums;
+      font-weight:700;
+    }
+    .presetRow{ display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+    .btn{
+      border:1px solid rgba(17,24,39,0.14);
+      background:#fff;
+      padding:6px 8px;
+      border-radius:10px;
+      font-size:11px;
+      font-weight:800;
+      color:rgba(17,24,39,0.85);
+      cursor:pointer;
+      user-select:none;
+    }
+    .btn:active{ transform:translateY(1px); }
+  </style>
+</head>
+<body>
+  <div class="demoWrap">
+    <div class="card" id="earthworks-card">
+      <div class="row">
+        <div class="title">Groundwork<br/>balance</div>
+        <div class="net" id="net-badge">
+          <div class="k">—</div>
+          <div class="v">—</div>
+          <div class="u">m³</div>
+        </div>
+      </div>
+
+      <div id="container"></div>
+
+      <div class="triplet" aria-label="Volumes">
+        <div class="cell left">
+          <span class="pill">−</span>
+          <span class="num" id="cut-value">—</span>
+          <span class="unit">m³</span>
+        </div>
+
+        <div class="cell mid">
+          <span class="swap" title="On-site transfer">↔</span>
+          <span class="num" id="onsite-value">—</span>
+          <span class="unit">m³</span>
+        </div>
+
+        <div class="cell right">
+          <span class="num" id="fill-value">—</span>
+          <span class="unit">m³</span>
+          <span class="pill">+</span>
+        </div>
+      </div>
+
+      <div class="tip" id="hoverTip">—</div>
+
+      <div class="controls" id="playground">
+        <div style="font-size:11px; color:var(--muted); font-weight:800; letter-spacing:0.06em; text-transform:uppercase;">Playground (demo)</div>
+
+        <div class="ctrlRow">
+          <div class="lbl">Cut</div>
+          <input id="cutRange" type="range" min="0" max="20000" step="10" />
+          <input id="cutNum" class="numInput" type="number" min="0" step="10" />
+        </div>
+
+        <div class="ctrlRow">
+          <div class="lbl">Fill</div>
+          <input id="fillRange" type="range" min="0" max="20000" step="10" />
+          <input id="fillNum" class="numInput" type="number" min="0" step="10" />
+        </div>
+
+        <div class="presetRow">
+          <div class="btn" data-preset="balanced">Balanced</div>
+          <div class="btn" data-preset="export">Export heavy</div>
+          <div class="btn" data-preset="import">Import heavy</div>
+          <div class="btn" data-preset="zero">Zeros</div>
+          <div class="btn" data-preset="extreme">Extreme</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ====== State ======
+    const data = {
+      cut_m3: 5200,
+      fill_m3: 6930
+    };
+
+    const fmt = (n) => Highcharts.numberFormat(n, 0, ',', ' ');
+
+    function setNetBadge(kind, value, tone) {
+      const badge = document.getElementById('net-badge');
+      const k = badge.querySelector('.k');
+      const v = badge.querySelector('.v');
+      const u = badge.querySelector('.u');
+
+      k.textContent = kind;
+      v.textContent = fmt(value);
+      u.textContent = 'm³';
+
+      if (tone === 'neutral') {
+        badge.style.background = '#f3f4f6';
+        badge.style.color = '#374151';
+        badge.style.borderColor = 'rgba(17,24,39,0.08)';
+      } else if (tone === 'good') {
+        badge.style.background = '#f0fdf4';
+        badge.style.color = '#15803d';
+        badge.style.borderColor = 'rgba(21,128,61,0.18)';
+      } else {
+        badge.style.background = '#fef2f2';
+        badge.style.color = '#b91c1c';
+        badge.style.borderColor = 'rgba(185,28,28,0.18)';
+      }
+    }
+
+    function updateSummary(cut, fill) {
+      const net = fill - cut;
+      const onSite = Math.min(cut, fill);
+
+      document.getElementById('cut-value').textContent = fmt(cut);
+      document.getElementById('fill-value').textContent = fmt(fill);
+      document.getElementById('onsite-value').textContent = fmt(onSite);
+
+      if (cut === 0 && fill === 0) {
+        setNetBadge('No earthworks', 0, 'neutral');
+        return;
+      }
+      if (net === 0) {
+        setNetBadge('Balanced', 0, 'neutral');
+      } else if (net < 0) {
+        setNetBadge('Export', -net, 'bad');
+      } else {
+        setNetBadge('Import', net, 'good');
+      }
+    }
+
+    // ====== Tooltip helpers ======
+    const tip = document.getElementById('hoverTip');
+    const card = document.getElementById('earthworks-card');
+
+    function showTip(html, clientX, clientY) {
+      tip.innerHTML = html;
+      const r = card.getBoundingClientRect();
+
+      let x = clientX - r.left + 10;
+      let y = clientY - r.top + 10;
+
+      const bb = tip.getBoundingClientRect();
+      x = Math.min(Math.max(10, x), r.width - 10 - bb.width);
+      y = Math.min(Math.max(10, y), r.height - 10 - bb.height);
+
+      tip.style.left = x + 'px';
+      tip.style.top = y + 'px';
+      tip.classList.add('on');
+    }
+
+    function hideTip() {
+      tip.classList.remove('on');
+    }
+
+    // ====== Pattern defs (diagonal hatch) ======
+    function ensurePatterns(renderer) {
+      if (renderer.customPatternsReady) return;
+      renderer.customPatternsReady = true;
+
+      const defs = renderer.defs || renderer.createElement('defs').add();
+
+      function makePattern(id, stroke) {
+        const p = renderer.createElement('pattern')
+          .attr({ id, patternUnits: 'userSpaceOnUse', width: 8, height: 8, patternTransform: 'rotate(45)' })
+          .add(defs);
+
+        renderer.createElement('rect')
+          .attr({ x: 0, y: 0, width: 8, height: 8, fill: 'rgba(255,255,255,0.10)' })
+          .add(p);
+
+        renderer.createElement('path')
+          .attr({ d: 'M 0 0 L 0 8', stroke, 'stroke-width': 3, opacity: 0.55 })
+          .add(p);
+      }
+
+      makePattern('hatchCut', 'rgba(255,255,255,0.95)');
+      makePattern('hatchFill', 'rgba(255,255,255,0.95)');
+    }
+
+    // ====== Rendering ======
+    function drawBalanceBar(chart, cut, fill) {
+      if (chart.custom) chart.custom.forEach(el => el && el.destroy && el.destroy());
+      chart.custom = [];
+
+      updateSummary(cut, fill);
+      ensurePatterns(chart.renderer);
+
+      const total = cut + fill;
+      const ratioCut = total > 0 ? cut / total : 0;
+
+      const pl = chart.plotLeft;
+      const pt = chart.plotTop;
+      const pw = chart.plotWidth;
+      const ph = chart.plotHeight;
+
+      const barH = 22;
+      const r = 11;
+      const padX = 4;
+
+      const x = pl + padX;
+      const w = pw - padX * 2;
+      const y = pt + Math.round((ph - barH) * 0.55);
+
+      // Base
+      const base = chart.renderer
+        .rect(x, y, w, barH, r)
+        .attr({ fill: '#ffffff', stroke: 'rgba(17,24,39,0.10)', 'stroke-width': 1 })
+        .add();
+      chart.custom.push(base);
+
+      if (total <= 0) {
+        const empty = chart.renderer
+          .rect(x, y, w, barH, r)
+          .attr({ fill: '#f3f4f6', stroke: 'rgba(17,24,39,0.08)', 'stroke-width': 1 })
+          .add();
+        chart.custom.push(empty);
+        return;
+      }
+
+      const cutW = Math.max(0, Math.min(w, Math.round(w * ratioCut)));
+      const fillW = w - cutW;
+      const boundaryX = x + cutW;
+      const midX = x + Math.round(w / 2);
+
+      // Colored parts (clipped)
+      const cutRect = chart.renderer.rect(x, y, cutW, barH, r).attr({ fill: getComputedStyle(document.documentElement).getPropertyValue('--cut').trim() }).add();
+      const fillRect = chart.renderer.rect(boundaryX, y, fillW, barH, r).attr({ fill: getComputedStyle(document.documentElement).getPropertyValue('--fill').trim() }).add();
+      chart.custom.push(cutRect, fillRect);
+
+      const clip = chart.renderer.rect(x, y, w, barH, r).add().attr({ fill: '#fff' });
+      cutRect.clip(clip);
+      fillRect.clip(clip);
+      chart.custom.push(clip);
+
+      // Balanced tick (50%)
+      const balanced = chart.renderer
+        .path(['M', midX, y - 7, 'L', midX, y + barH + 7])
+        .attr({ stroke: 'rgba(17,24,39,0.16)', 'stroke-width': 2 })
+        .add();
+      chart.custom.push(balanced);
+
+      // Divider (actual split)
+      const divider = chart.renderer
+        .path(['M', boundaryX, y - 7, 'L', boundaryX, y + barH + 7])
+        .attr({ stroke: 'rgba(17,24,39,0.44)', 'stroke-width': 2 })
+        .add();
+      chart.custom.push(divider);
+
+      // Overhang highlight: hatch pattern + strong underlay.
+      const overhangLeft = Math.min(boundaryX, midX);
+      const overhangRight = Math.max(boundaryX, midX);
+      const hasOverhang = overhangRight - overhangLeft >= 2;
+
+      const net = fill - cut;
+      const onSite = Math.min(cut, fill);
+      const imp = Math.max(net, 0);
+      const exp = Math.max(-net, 0);
+
+      if (hasOverhang) {
+        const isCutDominant = boundaryX > midX;
+        const pattern = isCutDominant ? 'url(#hatchCut)' : 'url(#hatchFill)';
+        const strong = isCutDominant
+          ? getComputedStyle(document.documentElement).getPropertyValue('--cutStrong').trim()
+          : getComputedStyle(document.documentElement).getPropertyValue('--fillStrong').trim();
+
+        const under = chart.renderer
+          .rect(overhangLeft, y, overhangRight - overhangLeft, barH, 0)
+          .attr({ fill: strong, opacity: 0.58 })
+          .add();
+        under.clip(clip);
+        chart.custom.push(under);
+
+        const hatch = chart.renderer
+          .rect(overhangLeft, y, overhangRight - overhangLeft, barH, 0)
+          .attr({ fill: pattern, opacity: 1 })
+          .add();
+        hatch.clip(clip);
+        chart.custom.push(hatch);
+
+        const outline = chart.renderer
+          .rect(overhangLeft, y, overhangRight - overhangLeft, barH, 0)
+          .attr({ fill: 'rgba(0,0,0,0)', stroke: 'rgba(255,255,255,0.92)', 'stroke-width': 2 })
+          .add();
+        outline.clip(clip);
+        chart.custom.push(outline);
+
+        // Tooltip on overhang
+        const tipHtml = net < 0
+          ? `<b>Export</b> ${fmt(exp)} m³<br/><span style="opacity:0.85">On-site transfer</span> ${fmt(onSite)} m³`
+          : `<b>Import</b> ${fmt(imp)} m³<br/><span style="opacity:0.85">On-site transfer</span> ${fmt(onSite)} m³`;
+
+        [under, hatch].forEach(shape => {
+          shape.css({ cursor: 'default' });
+          shape.on('mousemove', function (e) {
+            const evt = e || window.event;
+            showTip(tipHtml, evt.clientX, evt.clientY);
+          });
+          shape.on('mouseover', function (e) {
+            const evt = e || window.event;
+            showTip(tipHtml, evt.clientX, evt.clientY);
+          });
+          shape.on('mouseout', hideTip);
+        });
+
+        chart.custom.push({ destroy: hideTip });
+      }
+
+      // Net label near balanced tick (always readable, no "Import/Export" duplication)
+      if (net !== 0) {
+        const txt = net < 0 ? `−${fmt(-net)}` : `+${fmt(net)}`;
+        const label = chart.renderer
+          .text(txt, 0, y - 10)
+          .css({ fontSize: '11px', fontWeight: '900', color: 'rgba(17,24,39,0.70)' })
+          .add();
+
+        const bb = label.getBBox();
+        let lx = (boundaryX > midX) ? (midX + 4) : (midX - bb.width - 4);
+        lx = Math.max(x + 2, Math.min(x + w - bb.width - 2, lx));
+        label.attr({ x: lx });
+        chart.custom.push(label);
+      }
+    }
+
+    const chart = Highcharts.chart('container', {
+      chart: {
+        backgroundColor: 'transparent',
+        animation: false,
+        spacing: [0, 0, 0, 0],
+        events: {
+          load: function () { drawBalanceBar(this, data.cut_m3, data.fill_m3); },
+          redraw: function () { drawBalanceBar(this, data.cut_m3, data.fill_m3); }
+        }
+      },
+      title: { text: null },
+      subtitle: { text: null },
+      credits: { enabled: false },
+      tooltip: { enabled: false },
+      legend: { enabled: false },
+      xAxis: { visible: false },
+      yAxis: { visible: false },
+      series: []
+    });
+
+    // Ensure reflow inside fixed 480px wrapper
+    const ro = new ResizeObserver(() => chart.reflow());
+    ro.observe(document.getElementById('earthworks-card'));
+
+    // ====== Playground wiring ======
+    const cutRange = document.getElementById('cutRange');
+    const fillRange = document.getElementById('fillRange');
+    const cutNum = document.getElementById('cutNum');
+    const fillNum = document.getElementById('fillNum');
+
+    function syncUI() {
+      cutRange.value = String(data.cut_m3);
+      fillRange.value = String(data.fill_m3);
+      cutNum.value = String(data.cut_m3);
+      fillNum.value = String(data.fill_m3);
+    }
+
+    function setVolumes(cut, fill) {
+      data.cut_m3 = Math.max(0, Math.round(Number(cut) || 0));
+      data.fill_m3 = Math.max(0, Math.round(Number(fill) || 0));
+      syncUI();
+      chart.redraw();
+    }
+
+    // init
+    syncUI();
+    chart.redraw();
+
+    // range -> update
+    cutRange.addEventListener('input', () => setVolumes(cutRange.value, data.fill_m3));
+    fillRange.addEventListener('input', () => setVolumes(data.cut_m3, fillRange.value));
+
+    // number -> update
+    cutNum.addEventListener('change', () => setVolumes(cutNum.value, data.fill_m3));
+    fillNum.addEventListener('change', () => setVolumes(data.cut_m3, fillNum.value));
+
+    // presets
+    document.querySelectorAll('[data-preset]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = btn.getAttribute('data-preset');
+        if (p === 'balanced') setVolumes(5000, 5000);
+        if (p === 'export') setVolumes(12000, 3000);
+        if (p === 'import') setVolumes(2500, 11000);
+        if (p === 'zero') setVolumes(0, 0);
+        if (p === 'extreme') setVolumes(20000, 10);
+      });
+    });
+
+    // External API (embed)
+    // window.setVolumes = setVolumes;
+  </script>
+</body>
+</html>
