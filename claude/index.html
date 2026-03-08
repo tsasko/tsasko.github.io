@@ -1,202 +1,413 @@
 <!DOCTYPE html>
-<html lang="sk">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Claude Information Architecture</title>
+<title>Claude Information Architecture — Solargis</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: system-ui, sans-serif; background: #f1f5f9; padding: 24px 16px; color: #111; }
-  .wrap { max-width: 820px; margin: 0 auto; }
+  .wrap { max-width: 900px; margin: 0 auto; }
   h2 { font-size: 18px; font-weight: 700; }
   .sub { color: #6b7280; font-size: 13px; margin-top: 4px; margin-bottom: 20px; }
-  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 22px; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; padding: 12px 14px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; }
   .leg-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
   .leg-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
   .leg-name { font-weight: 700; }
   .leg-desc { color: #9ca3af; }
-  .layers { display: flex; flex-direction: column; gap: 10px; }
-  .layer { border-radius: 10px; border: 2px solid; overflow: hidden; background: #fafafa; transition: all 0.15s; }
+
+  .decisions-bar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .decision-chip { display: flex; align-items: flex-start; gap: 8px; background: white; border: 1.5px solid #86efac; border-radius: 8px; padding: 8px 12px; font-size: 12px; flex: 1; min-width: 200px; }
+  .decision-chip-icon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .decision-chip-text { line-height: 1.5; color: #374151; }
+  .decision-chip-text strong { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #15803d; margin-bottom: 2px; }
+
+  /* Zoom axis + layers wrapper */
+  .layers-wrap { display: flex; gap: 12px; align-items: stretch; }
+  .zoom-axis { display: flex; flex-direction: column; align-items: center; gap: 0; flex-shrink: 0; width: 36px; }
+  .zoom-label-top { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; padding: 8px 0; }
+  .zoom-line { flex: 1; width: 2px; background: linear-gradient(to bottom, #cbd5e1, #64748b); border-radius: 1px; position: relative; }
+  .zoom-arrow { font-size: 16px; color: #64748b; margin-top: 2px; line-height: 1; }
+  .zoom-label-bottom { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; padding: 8px 0; }
+
+  .layers { display: flex; flex-direction: column; gap: 10px; flex: 1; }
+  .layer { border-radius: 10px; border: 2px solid; overflow: hidden; background: #fafafa; transition: background 0.15s, border-color 0.15s; }
   .layer-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; user-select: none; }
   .layer-id { width: 30px; height: 30px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: white; flex-shrink: 0; }
   .layer-title { flex: 1; }
-  .layer-title-row { display: flex; align-items: center; gap: 8px; }
+  .layer-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .layer-name { font-weight: 700; font-size: 14px; }
-  .badge-new { font-size: 10px; background: #fef3c7; color: #92400e; padding: 1px 7px; border-radius: 99px; font-weight: 600; }
+  .layer-tagline { font-size: 12px; color: #94a3b8; font-style: italic; }
+  .badge { font-size: 10px; padding: 1px 7px; border-radius: 99px; font-weight: 600; }
+  .badge-new { background: #fef3c7; color: #92400e; }
   .layer-scope { font-size: 12px; color: #6b7280; margin-top: 2px; }
-  .mech-badge { font-size: 11px; font-weight: 700; background: white; padding: 3px 11px; border-radius: 99px; border: 1.5px solid; flex-shrink: 0; }
-  .chevron { font-size: 14px; color: #9ca3af; flex-shrink: 0; transition: transform 0.2s; }
+  .mech-badges { display: flex; gap: 6px; flex-wrap: wrap; flex-shrink: 0; }
+  .mech-badge { font-size: 11px; font-weight: 700; background: white; padding: 3px 10px; border-radius: 99px; border: 1.5px solid; white-space: nowrap; }
+  .chevron { font-size: 13px; color: #9ca3af; flex-shrink: 0; }
+
   .layer-body { padding: 0 16px 16px; border-top: 1px solid; display: none; }
   .layer-body.open { display: block; }
   .body-inner { display: flex; gap: 20px; margin-top: 14px; flex-wrap: wrap; }
-  .col { flex: 1; min-width: 200px; }
+  .col { flex: 1; min-width: 180px; }
   .col-label { font-size: 11px; font-weight: 700; color: #6b7280; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.05em; }
   .col-item { font-size: 13px; color: #374151; margin-bottom: 5px; display: flex; gap: 6px; line-height: 1.4; }
-  .col-arrow { flex-shrink: 0; }
   .note-box { font-size: 13px; color: #374151; border-radius: 7px; padding: 9px 12px; line-height: 1.6; border: 1px solid; }
   .update-row { font-size: 12px; color: #9ca3af; margin-top: 8px; }
-  .decision { margin-top: 20px; background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 16px; }
-  .decision-title { font-weight: 700; font-size: 13px; margin-bottom: 12px; }
-  .decision-cols { display: flex; gap: 0; flex-wrap: wrap; }
-  .decision-col { flex: 1; min-width: 180px; padding: 0 14px; }
-  .decision-col:first-child { padding-left: 0; }
-  .decision-col:last-child { padding-right: 0; border-right: none; }
-  .decision-col-title { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
-  .decision-col ul { font-size: 12px; color: #374151; line-height: 1.8; padding-left: 14px; }
-  .divider { width: 1px; background: #e2e8f0; margin: 0; }
+  .consumers { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+  .consumer-tag { font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 500; }
+
+  /* Lifecycle */
+  .lifecycle { margin-top: 16px; background: white; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; }
+  .lifecycle-title { font-weight: 700; font-size: 13px; margin-bottom: 10px; }
+  .lifecycle-flow { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
+  .lf-phase { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 80px; padding: 8px 4px; }
+  .lf-phase-num { font-size: 11px; font-weight: 700; color: white; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .lf-phase-name { font-size: 11px; font-weight: 600; color: #374151; text-align: center; }
+  .lf-phase-role { font-size: 10px; color: #9ca3af; text-align: center; }
+  .lf-arrow { color: #d1d5db; font-size: 16px; flex-shrink: 0; }
+  .lifecycle-note { font-size: 12px; color: #6b7280; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9; }
+
+  /* Project setup */
+  .flow-box { margin-top: 16px; background: white; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 16px; }
+  .flow-title { font-weight: 700; font-size: 13px; margin-bottom: 14px; }
+  .flow-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .flow-col { background: #f8fafc; border-radius: 8px; padding: 12px; }
+  .flow-col-title { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .flow-col ul { font-size: 12px; color: #374151; line-height: 1.8; padding-left: 14px; }
+
+  /* Instructions example */
+  .example-box { margin-top: 16px; background: white; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 16px; }
+  .example-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+  .example-sub { font-size: 12px; color: #6b7280; margin-bottom: 14px; }
+  .code-block { background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 16px; font-family: 'Menlo','Monaco','Courier New',monospace; font-size: 12px; line-height: 1.7; overflow-x: auto; white-space: pre; }
+  .code-comment { color: #64748b; }
+  .code-heading { color: #7dd3fc; }
+  .code-value { color: #86efac; }
+  .code-key { color: #fda4af; }
+
+  @media (max-width: 600px) {
+    .flow-grid { grid-template-columns: 1fr; }
+    .lf-arrow { display: none; }
+    .zoom-axis { display: none; }
+  }
   .hint { font-size: 11px; color: #9ca3af; text-align: center; margin-top: 12px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h2>Claude Information Architecture</h2>
-  <p class="sub">Solargis PO Workflow — kde žijú ktoré informácie a ako sa dostávajú do Clauda</p>
+  <p class="sub">Solargis — where information lives, how it reaches Claude, and who uses it</p>
 
   <div class="legend">
-    <div class="leg-item"><div class="leg-dot" style="background:#7c3aed"></div><span class="leg-name" style="color:#7c3aed">Skill</span><span class="leg-desc">— auto-trigger, centrálne, zdieľané</span></div>
-    <div class="leg-item"><div class="leg-dot" style="background:#b45309"></div><span class="leg-name" style="color:#b45309">Project Instructions</span><span class="leg-desc">— vždy v kontexte, statické, per-projekt</span></div>
-    <div class="leg-item"><div class="leg-dot" style="background:#0369a1"></div><span class="leg-name" style="color:#0369a1">MD súbor</span><span class="leg-desc">— vždy v kontexte, aktualizovateľné, per-projekt</span></div>
-    <div class="leg-item"><div class="leg-dot" style="background:#b91c1c"></div><span class="leg-name" style="color:#b91c1c">MCP live</span><span class="leg-desc">— dynamické, per-konverzácia</span></div>
+    <div class="leg-item"><div class="leg-dot" style="background:#7c3aed"></div><span class="leg-name" style="color:#7c3aed">Skill</span><span class="leg-desc">— auto-triggered, centrally managed, shared</span></div>
+    <div class="leg-item"><div class="leg-dot" style="background:#b45309"></div><span class="leg-name" style="color:#b45309">Project Instructions</span><span class="leg-desc">— always in context, static, per-project</span></div>
+    <div class="leg-item"><div class="leg-dot" style="background:#0369a1"></div><span class="leg-name" style="color:#0369a1">MD file</span><span class="leg-desc">— always in context, updatable, per-project</span></div>
+    <div class="leg-item"><div class="leg-dot" style="background:#b91c1c"></div><span class="leg-name" style="color:#b91c1c">MCP live</span><span class="leg-desc">— dynamic, per-conversation</span></div>
+    <div class="leg-item"><div class="leg-dot" style="background:#0f766e"></div><span class="leg-name" style="color:#0f766e">Confluence</span><span class="leg-desc">— versioned source, copied to skill on change</span></div>
   </div>
 
-  <div class="layers" id="layers"></div>
+  <div class="decisions-bar">
+    <div class="decision-chip">
+      <div class="decision-chip-icon">🔒</div>
+      <div class="decision-chip-text">
+        <strong>Decision locked</strong>
+        Cross-team ownership map lives in L0, not L2. L0 → L2 pointer per product for deep context.
+      </div>
+    </div>
+    <div class="decision-chip">
+      <div class="decision-chip-icon">🔒</div>
+      <div class="decision-chip-text">
+        <strong>Decision locked</strong>
+        L2 stays a Skill for auto-triggering. Confluence is the editor — copy to skill on each change.
+      </div>
+    </div>
+    <div class="decision-chip">
+      <div class="decision-chip-icon">🔒</div>
+      <div class="decision-chip-text">
+        <strong>Decision locked</strong>
+        No KB MCP. Public Solargis docs via web_fetch on demand. Revisit if auth wall appears.
+      </div>
+    </div>
+  </div>
 
-  <div class="decision">
-    <div class="decision-title">Rozhodovací strom: Project Instructions vs. MD súbor</div>
-    <div class="decision-cols">
-      <div class="decision-col">
-        <div class="decision-col-title" style="color:#b45309">→ Project Instructions (priamo v texte)</div>
+  <div class="layers-wrap">
+    <!-- Zoom axis -->
+    <div class="zoom-axis">
+      <div class="zoom-label-top">Abstract</div>
+      <div class="zoom-line"></div>
+      <div class="zoom-arrow">▼</div>
+      <div class="zoom-label-bottom">Concrete</div>
+    </div>
+    <!-- Layers -->
+    <div class="layers" id="layers"></div>
+  </div>
+
+  <!-- Lifecycle -->
+  <div class="lifecycle">
+    <div class="lifecycle-title">Project lifecycle — one Claude project, multiple roles, full idea lifespan</div>
+    <div class="lifecycle-flow" id="lifecycle-flow"></div>
+    <div class="lifecycle-note">A Claude project is created once per idea and shared across roles. Each role loads the same L0 + L2 context and the relevant L1 skill for their phase. No context is lost between phases — the project accumulates shared understanding over time.</div>
+  </div>
+
+  <!-- Project setup -->
+  <div class="flow-box">
+    <div class="flow-title">Project setup — what goes where when creating a new idea project</div>
+    <div class="flow-grid">
+      <div class="flow-col">
+        <div class="flow-col-title" style="color:#b45309">Project Instructions (always)</div>
         <ul>
-          <li>Kontext idei je stručný</li>
-          <li>Scope je jasný od začiatku</li>
-          <li>Minimum open questions</li>
-          <li>Idea je menšia / taktická</li>
+          <li>IDEA-XXX + title</li>
+          <li>JPD URL + Epic URL</li>
+          <li>Active skills listed explicitly</li>
+          <li>Idea context if short and stable</li>
         </ul>
       </div>
-      <div class="divider"></div>
-      <div class="decision-col">
-        <div class="decision-col-title" style="color:#0369a1">→ MD súbor priložený k projektu</div>
+      <div class="flow-col">
+        <div class="flow-col-title" style="color:#0369a1">MD file (complex ideas only)</div>
         <ul>
-          <li>Veľa open questions</li>
-          <li>Komplexné scope boundaries</li>
-          <li>Viac key decisions na záznam</li>
-          <li>Idea sa vyvíja dlhodobo</li>
+          <li>Scope boundary</li>
+          <li>Key decisions locked</li>
+          <li>Open questions</li>
+          <li>Key contacts / dependencies</li>
+        </ul>
+      </div>
+      <div class="flow-col">
+        <div class="flow-col-title" style="color:#b91c1c">Never in project storage</div>
+        <ul>
+          <li>Current Jira state</li>
+          <li>Figma component details</li>
+          <li>Any live data snapshot</li>
+          <li>Team roster (lives in L0)</li>
         </ul>
       </div>
     </div>
   </div>
 
-  <p class="hint">Klikni na vrstvu pre detail</p>
+  <!-- Instructions example -->
+  <div class="example-box">
+    <div class="example-title">Example: Project Instructions template</div>
+    <div class="example-sub">Copy this template when creating a new idea project. Replace the placeholders. Skills listed here tell Claude what to load and when.</div>
+    <div class="code-block"><span class="code-heading"># Project: [IDEA-XXX] — [Idea Title]</span>
+
+<span class="code-heading">## Identity</span>
+<span class="code-key">JPD idea:</span>  <span class="code-value">[JPD URL]</span>
+<span class="code-key">Epic:</span>      <span class="code-value">[Jira Epic URL — add once created]</span>
+<span class="code-key">Product:</span>  <span class="code-value">[e.g. Energy System Designer]</span>
+
+<span class="code-heading">## Always active</span>
+<span class="code-comment"># Load these for every task in this project.</span>
+- <span class="code-value">solargis-company-context</span>   <span class="code-comment"># company, all teams, cross-team ownership, product index</span>
+- <span class="code-value">solargis-esd-context</span>        <span class="code-comment"># deep ESD product context — replace with your product's L2 skill</span>
+
+<span class="code-heading">## Phase skills — load when the task matches</span>
+<span class="code-comment"># Claude selects the relevant skill based on what is being worked on.</span>
+- <span class="code-value">jpd-idea-description</span>        <span class="code-comment"># Phase 1 — writing or refining the JPD idea</span>
+- <span class="code-value">epic-wbs-breakdown</span>          <span class="code-comment"># Phase 2 — breaking the epic into Jira issues</span>
+- <span class="code-value">jira-story-writing</span>          <span class="code-comment"># Phase 3 — writing stories, tasks, analyses</span>
+- <span class="code-value">release-go2market</span>           <span class="code-comment"># Phase 4 — go-to-market doc in Confluence</span>
+- <span class="code-value">technical-writer-prep</span>       <span class="code-comment"># Phase 5 — TW briefing page in Confluence</span>
+- <span class="code-value">release-linkedin-post</span>       <span class="code-comment"># Phase 6 — LinkedIn release announcement</span>
+
+<span class="code-heading">## Idea context</span>
+<span class="code-comment"># Short idea: write scope and decisions here directly.</span>
+<span class="code-comment"># Complex idea: attach idea-context.md to this project instead.</span>
+<span class="code-key">Scope:</span>                <span class="code-value">[1–2 sentences]</span>
+<span class="code-key">Out of scope:</span>         <span class="code-value">[explicit exclusions]</span>
+<span class="code-key">Key decisions locked:</span> <span class="code-value">[decisions that should not be reopened]</span>
+<span class="code-key">Open questions:</span>       <span class="code-value">[unresolved items — expected to evolve]</span>
+
+<span class="code-heading">## Live data</span>
+<span class="code-comment"># Always fetch current state via MCP — never assume from memory.</span>
+- Jira: query live for story status, sprint, blockers
+- Figma: fetch component when referenced
+- Solargis KB: use web_fetch on docs URL when official documentation is needed</div>
+  </div>
+
+  <p class="hint">Click a layer to expand</p>
 </div>
 
 <script>
+const CONSUMERS = {
+  dev:     { label: "Dev / PO",          bg: "#ede9fe", color: "#6d28d9" },
+  cs:      { label: "Customer Success",  bg: "#dcfce7", color: "#15803d" },
+  mktg:    { label: "Marketing",         bg: "#fce7f3", color: "#be185d" },
+  sales:   { label: "Sales",             bg: "#fff7ed", color: "#c2410c" },
+  tw:      { label: "Tech Writers",      bg: "#e0f2fe", color: "#0369a1" },
+  testers: { label: "Testers",           bg: "#fef9c3", color: "#854d0e" },
+};
+
 const layers = [
   {
     id: "L0", label: "Company layer", isNew: true,
+    tagline: "who we are, what we own",
     color: "#6366f1", bg: "#eef2ff", border: "#a5b4fc",
-    scope: "Všetci POs, všetky tímy",
-    mechanism: "Skill", mechColor: "#7c3aed",
-    update: "Zriedkavo (zmena org štruktúry, portfólia)",
+    scope: "Everyone — POs, Devs, Sales, Marketing, Customer Success, Tech Writers",
+    mechanisms: [{ label: "Skill", color: "#7c3aed" }],
+    update: "Rarely — org structure or portfolio changes only",
+    consumers: ["dev","cs","mktg","sales","tw"],
     content: [
-      "Solargis produktové portfólio",
-      "Všetky tímy + ľudia + vlastníctvo",
-      "Základné writing rules (em dash, formát, atď.)",
+      "Solargis mission and product portfolio",
+      "HL description of each product (2–3 sentences) + pointer to its L2 skill",
+      "All teams + people + roles (dev, sales, marketing, CS)",
+      "Cross-team ownership map — what each team owns and depends on",
+      "Base writing rules shared across all outputs",
+      "Sales: pricing tiers and demo limitations per product",
+      "Marketing: positioning and ICP per product",
     ],
-    note: "1 nový skill: solargis-company-context. Zdieľaný naprieč celou organizáciou. Owner = všetci POs spoločne. Zmeny cez konsenzus."
+    note: "Skill: solargis-company-context. Owner: all POs jointly, changes by consensus. Cross-team dependencies live here — not in L2 — because ownership is a company-wide fact, not a product-specific one. Product descriptions are intentionally shallow: two or three sentences, then an explicit pointer to the L2 skill for deep context."
   },
   {
-    id: "L1", label: "PO metodika", isNew: false,
-    color: "#0891b2", bg: "#ecfeff", border: "#67e8f9",
-    scope: "Všetci POs — fázové skills sú už generické",
-    mechanism: "Skills (6 fáz)", mechColor: "#0e7490",
-    update: "Pri zmene procesu alebo štandardov",
-    content: [
-      "Phase 1 — jpd-idea-description",
-      "Phase 2 — epic-wbs-breakdown",
-      "Phase 3 — jira-story-writing",
-      "Phase 4 — release-go2market",
-      "Phase 5 — technical-writer-prep",
-      "Phase 6 — release-linkedin-post",
-    ],
-    note: "Tieto skills už neobsahujú ESD-špecifický kontext. Sú použiteľné kýmkoľvek. Stačí zabezpečiť, že ich majú všetci POs dostupné."
-  },
-  {
-    id: "L2", label: "Tímový kontext", isNew: false,
+    id: "L2", label: "Product context", isNew: false,
+    tagline: "what our product does",
     color: "#059669", bg: "#ecfdf5", border: "#6ee7b7",
-    scope: "1 skill per produktový tím",
-    mechanism: "Skill", mechColor: "#047857",
-    update: "Pri zmene tímu, produktu alebo UI architektúry",
-    content: [
-      "Detailný popis produktu tímu",
-      "UI oblasti a entity špecifické pre daný produkt",
-      "Cross-team závislosti (čo vlastnia iní tímy)",
-      "Tímové špecifické writing rules",
+    scope: "1 skill per product team — Confluence is the editor, Skill is the delivery",
+    mechanisms: [
+      { label: "Skill", color: "#047857" },
+      { label: "Confluence (editor)", color: "#0f766e" },
     ],
-    note: "ESD má: solargis-esd-context. Ostatné tímy potrebujú vlastné: solargis-apps-context, solargis-simulator-context, atď. Owner = PO daného tímu."
+    update: "When product, UI architecture, or team changes — edit in Confluence, copy to Skill",
+    consumers: ["dev","cs","tw"],
+    content: [
+      "Deep product description — UI areas, entities, core workflow",
+      "Product-specific terminology and naming conventions",
+      "Team-specific writing and AC rules",
+    ],
+    note: "Stored as a Skill for auto-triggering. Confluence is the canonical editor — PO edits there, then copies content into the skill file. Cross-team dependencies intentionally excluded here — they live in L0. ESD has: solargis-esd-context. Each product needs its own: solargis-apps-context, solargis-simulator-context, etc."
   },
   {
-    id: "L3", label: "Projekt (idea)", isNew: false,
+    id: "L1", label: "Role methodology", isNew: false,
+    tagline: "how we work",
+    color: "#0891b2", bg: "#ecfeff", border: "#67e8f9",
+    scope: "All roles — currently PO-focused, extensible to Marketing, TW, Testers and others",
+    mechanisms: [{ label: "Skills (per role + phase)", color: "#0e7490" }],
+    update: "When process or output standards change — consensus required",
+    consumers: ["dev","mktg","tw","testers"],
+    content: [
+      "PO — Phase 1: jpd-idea-description",
+      "PO — Phase 2: epic-wbs-breakdown",
+      "PO — Phase 3: jira-story-writing",
+      "PO — Phase 4: release-go2market",
+      "PO — Phase 5: technical-writer-prep",
+      "PO — Phase 6: release-linkedin-post",
+      "Future: marketing-content, test-case-writing, cs-response, …",
+    ],
+    note: "Currently covers the full PO workflow. The structure is intentionally generic — any role can add their own skills following the same pattern. A project can list skills from multiple roles, enabling handoff without context loss. Owner per skill: the role that uses it. Cross-role changes require consensus."
+  },
+  {
+    id: "L3", label: "Project (idea)", isNew: false,
+    tagline: "what we are working on right now",
     color: "#d97706", bg: "#fffbeb", border: "#fcd34d",
-    scope: "1 projekt = 1 idea v JPD",
-    mechanism: "Instructions / MD", mechColor: "#b45309",
-    update: "Raz pri zakladaní + pri zmene smerovania",
+    scope: "1 Claude project = 1 JPD idea — shared by all roles across the full lifecycle",
+    mechanisms: [
+      { label: "Instructions", color: "#b45309" },
+      { label: "MD file", color: "#0369a1" },
+    ],
+    update: "Once at creation + when strategic direction changes",
+    consumers: ["dev","mktg","tw","testers"],
     content: [
       "IDEA-XXX + title + JPD URL + Epic URL",
-      "Scope boundary (čo je in / out)",
-      "Key decisions locked (fixné, neotvárať)",
-      "Open questions (stále otvorené)",
-      "Referencie na relevantné skills",
+      "Which skills are active (always-on + phase skills)",
+      "Scope boundary — in / explicitly out",
+      "Key decisions locked — do not reopen without flagging",
+      "Open questions — unresolved, expected to evolve",
     ],
-    note: "Krátka idea → priamo do Project Instructions. Dlhá / komplexná → MD súbor priložený k projektu. Nikdy neobsahuje aktuálny stav Jira — ten je vždy live cez MCP."
+    note: "A project is created once and shared — PO, developers, TW, testers all work in the same project across phases. Each role loads the skills relevant to their work. Short idea: context fits directly in Project Instructions. Long idea: attach idea-context.md. Never contains live Jira or Figma state."
   },
   {
-    id: "L4", label: "Živý stav", isNew: false,
+    id: "L4", label: "Live state", isNew: false,
+    tagline: "what the state is right now",
     color: "#dc2626", bg: "#fef2f2", border: "#fca5a5",
-    scope: "Per konverzácia, vždy čerstvé",
-    mechanism: "MCP live", mechColor: "#b91c1c",
-    update: "Každé volanie — nikdy sa neukladá",
+    scope: "Per conversation — always fresh, never stored",
+    mechanisms: [{ label: "MCP live", color: "#b91c1c" }],
+    update: "Every call — real-time",
+    consumers: ["dev","cs","mktg","sales","tw","testers"],
     content: [
-      "Aktuálny stav Jira stories a taskov",
-      "Figma design komponent (cez Figma MCP)",
-      "Google Drive dokument (ak potrebný)",
+      "Jira — current story and task state, sprint status",
+      "Figma — design components and specs",
+      "Google Drive — documents when referenced",
+      "Solargis KB — public docs via web_fetch, no MCP needed",
     ],
-    note: "NIKDY snapshot. Claude vždy volá Jira/Figma/Drive živé. Snapshot = stale state = nesprávne predpoklady. Ak chceš ušetriť tokeny, definuj štandardný fetch prompt ako súčasť project instructions."
-  }
+    note: "Never snapshot any of these into a file. Claude always calls Jira, Figma, Drive, and KB live. KB: public Solargis documentation is fetched via web_fetch — no dedicated MCP needed as long as there is no auth wall. If internal KB content appears behind authentication, KB MCP becomes relevant at that point."
+  },
 ];
 
-const container = document.getElementById("layers");
+const phases = [
+  { num: 1, name: "Idea",           role: "PO",              color: "#6366f1" },
+  { num: 2, name: "Epic breakdown", role: "PO",              color: "#0891b2" },
+  { num: 3, name: "Story writing",  role: "PO + Dev",        color: "#059669" },
+  { num: 4, name: "Development",    role: "Dev",             color: "#d97706" },
+  { num: 5, name: "Go-to-market",   role: "PO + Marketing",  color: "#7c3aed" },
+  { num: 6, name: "TW prep",        role: "PO + TW",         color: "#0369a1" },
+  { num: 7, name: "Release",        role: "All roles",       color: "#dc2626" },
+];
 
+// Build lifecycle
+const lfContainer = document.getElementById("lifecycle-flow");
+phases.forEach((p, i) => {
+  const phase = document.createElement("div");
+  phase.className = "lf-phase";
+  phase.innerHTML = `
+    <div class="lf-phase-num" style="background:${p.color}">${p.num}</div>
+    <div class="lf-phase-name">${p.name}</div>
+    <div class="lf-phase-role">${p.role}</div>
+  `;
+  lfContainer.appendChild(phase);
+  if (i < phases.length - 1) {
+    const arrow = document.createElement("div");
+    arrow.className = "lf-arrow";
+    arrow.textContent = "›";
+    lfContainer.appendChild(arrow);
+  }
+});
+
+// Build layers
+const container = document.getElementById("layers");
 layers.forEach(layer => {
   const el = document.createElement("div");
   el.className = "layer";
   el.style.borderColor = layer.border;
 
-  const arrowId = `arrow-${layer.id}`;
-  const bodyId = `body-${layer.id}`;
+  const arrowId = `arr-${layer.id}`;
+  const bodyId  = `body-${layer.id}`;
+
+  const mechHTML = layer.mechanisms.map(m =>
+    `<div class="mech-badge" style="color:${m.color};border-color:${m.color}">${m.label}</div>`
+  ).join('');
+
+  const badgesHTML = layer.isNew ? '<span class="badge badge-new">NEW</span>' : '';
+
+  const consumerHTML = (layer.consumers||[]).map(k => {
+    const c = CONSUMERS[k];
+    return `<span class="consumer-tag" style="background:${c.bg};color:${c.color}">${c.label}</span>`;
+  }).join('');
 
   el.innerHTML = `
-    <div class="layer-header" onclick="toggle('${bodyId}', '${arrowId}', '${layer.bg}', '${layer.color}', this.closest('.layer'), '${layer.border}')">
+    <div class="layer-header" onclick="toggle('${bodyId}','${arrowId}','${layer.bg}','${layer.color}',this.closest('.layer'),'${layer.border}')">
       <div class="layer-id" style="background:${layer.color}">${layer.id}</div>
       <div class="layer-title">
         <div class="layer-title-row">
           <span class="layer-name">${layer.label}</span>
-          ${layer.isNew ? '<span class="badge-new">NEW</span>' : ''}
+          <span class="layer-tagline">— ${layer.tagline}</span>
+          ${badgesHTML}
         </div>
         <div class="layer-scope">${layer.scope}</div>
       </div>
-      <div class="mech-badge" style="color:${layer.mechColor}; border-color:${layer.mechColor}">${layer.mechanism}</div>
+      <div class="mech-badges">${mechHTML}</div>
       <div class="chevron" id="${arrowId}">▼</div>
     </div>
     <div class="layer-body" id="${bodyId}" style="border-color:${layer.border}">
       <div class="body-inner">
         <div class="col">
-          <div class="col-label">Čo obsahuje</div>
-          ${layer.content.map(c => `<div class="col-item"><span class="col-arrow" style="color:${layer.color}">›</span><span>${c}</span></div>`).join('')}
+          <div class="col-label">Contents</div>
+          ${layer.content.map(c=>`<div class="col-item"><span style="color:${layer.color};flex-shrink:0">›</span><span>${c}</span></div>`).join('')}
+          <div class="col-label" style="margin-top:12px">Used by</div>
+          <div class="consumers">${consumerHTML}</div>
         </div>
         <div class="col">
-          <div class="col-label">Poznámka</div>
-          <div class="note-box" style="background:${layer.bg}; border-color:${layer.border}">${layer.note}</div>
-          <div class="update-row">Aktualizácia: <span style="color:#374151">${layer.update}</span></div>
+          <div class="col-label">Notes</div>
+          <div class="note-box" style="background:${layer.bg};border-color:${layer.border}">${layer.note}</div>
+          <div class="update-row">Update frequency: <span style="color:#374151">${layer.update}</span></div>
         </div>
       </div>
     </div>
