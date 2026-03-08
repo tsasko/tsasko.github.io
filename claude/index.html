@@ -23,13 +23,13 @@
   .decision-chip-text { line-height: 1.5; color: #374151; }
   .decision-chip-text strong { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #15803d; margin-bottom: 2px; }
 
-  /* Zoom axis + layers wrapper */
+  /* Zoom axis */
   .layers-wrap { display: flex; gap: 12px; align-items: stretch; }
-  .zoom-axis { display: flex; flex-direction: column; align-items: center; gap: 0; flex-shrink: 0; width: 36px; }
-  .zoom-label-top { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; padding: 8px 0; }
-  .zoom-line { flex: 1; width: 2px; background: linear-gradient(to bottom, #cbd5e1, #64748b); border-radius: 1px; position: relative; }
+  .zoom-axis { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; width: 36px; }
+  .zoom-label { font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; padding: 8px 0; }
+  .zoom-label-bottom { color: #64748b; }
+  .zoom-line { flex: 1; width: 2px; background: linear-gradient(to bottom, #cbd5e1, #64748b); border-radius: 1px; }
   .zoom-arrow { font-size: 16px; color: #64748b; margin-top: 2px; line-height: 1; }
-  .zoom-label-bottom { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; writing-mode: vertical-rl; transform: rotate(180deg); white-space: nowrap; padding: 8px 0; }
 
   .layers { display: flex; flex-direction: column; gap: 10px; flex: 1; }
   .layer { border-radius: 10px; border: 2px solid; overflow: hidden; background: #fafafa; transition: background 0.15s, border-color 0.15s; }
@@ -56,6 +56,10 @@
   .update-row { font-size: 12px; color: #9ca3af; margin-top: 8px; }
   .consumers { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
   .consumer-tag { font-size: 11px; padding: 2px 8px; border-radius: 99px; font-weight: 500; }
+
+  /* Skills admin note */
+  .skills-note { margin-bottom: 16px; display: flex; align-items: flex-start; gap: 10px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #374151; line-height: 1.6; }
+  .skills-note-icon { font-size: 16px; flex-shrink: 0; }
 
   /* Lifecycle */
   .lifecycle { margin-top: 16px; background: white; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; }
@@ -100,11 +104,19 @@
   <p class="sub">Solargis — where information lives, how it reaches Claude, and who uses it</p>
 
   <div class="legend">
-    <div class="leg-item"><div class="leg-dot" style="background:#7c3aed"></div><span class="leg-name" style="color:#7c3aed">Skill</span><span class="leg-desc">— auto-triggered, centrally managed, shared</span></div>
+    <div class="leg-item"><div class="leg-dot" style="background:#7c3aed"></div><span class="leg-name" style="color:#7c3aed">Skill</span><span class="leg-desc">— auto-triggered, centrally managed by admin, shared org-wide</span></div>
     <div class="leg-item"><div class="leg-dot" style="background:#b45309"></div><span class="leg-name" style="color:#b45309">Project Instructions</span><span class="leg-desc">— always in context, static, per-project</span></div>
     <div class="leg-item"><div class="leg-dot" style="background:#0369a1"></div><span class="leg-name" style="color:#0369a1">MD file</span><span class="leg-desc">— always in context, updatable, per-project</span></div>
     <div class="leg-item"><div class="leg-dot" style="background:#b91c1c"></div><span class="leg-name" style="color:#b91c1c">MCP live</span><span class="leg-desc">— dynamic, per-conversation</span></div>
     <div class="leg-item"><div class="leg-dot" style="background:#0f766e"></div><span class="leg-name" style="color:#0f766e">Confluence</span><span class="leg-desc">— versioned source, copied to skill on change</span></div>
+  </div>
+
+  <!-- Skills admin note -->
+  <div class="skills-note">
+    <div class="skills-note-icon">ℹ️</div>
+    <div>
+      <strong style="display:inline;font-weight:700;">Skills on Team plan:</strong> Team admins can provision skills centrally from Admin Settings — skills are enabled by default for all users org-wide. Individual users can toggle them off. This means one admin publishes a skill update and the entire team gets it immediately, with no manual distribution.
+    </div>
   </div>
 
   <div class="decisions-bar">
@@ -112,34 +124,25 @@
       <div class="decision-chip-icon">🔒</div>
       <div class="decision-chip-text">
         <strong>Decision locked</strong>
-        Cross-team ownership map lives in L0, not L2. L0 → L2 pointer per product for deep context.
+        L2 stays a Skill for auto-triggering. Confluence is the editor — copy to skill on each change. L1 → L2 pointer per product for deep context.
       </div>
     </div>
     <div class="decision-chip">
       <div class="decision-chip-icon">🔒</div>
       <div class="decision-chip-text">
         <strong>Decision locked</strong>
-        L2 stays a Skill for auto-triggering. Confluence is the editor — copy to skill on each change.
-      </div>
-    </div>
-    <div class="decision-chip">
-      <div class="decision-chip-icon">🔒</div>
-      <div class="decision-chip-text">
-        <strong>Decision locked</strong>
-        No KB MCP. Public Solargis docs via web_fetch on demand. Revisit if auth wall appears.
+        No KB MCP. Public Solargis docs fetched via web_fetch on demand. Revisit only if auth wall appears.
       </div>
     </div>
   </div>
 
   <div class="layers-wrap">
-    <!-- Zoom axis -->
     <div class="zoom-axis">
-      <div class="zoom-label-top">Abstract</div>
+      <div class="zoom-label">Abstract</div>
       <div class="zoom-line"></div>
       <div class="zoom-arrow">▼</div>
-      <div class="zoom-label-bottom">Concrete</div>
+      <div class="zoom-label zoom-label-bottom">Concrete</div>
     </div>
-    <!-- Layers -->
     <div class="layers" id="layers"></div>
   </div>
 
@@ -147,7 +150,7 @@
   <div class="lifecycle">
     <div class="lifecycle-title">Project lifecycle — one Claude project, multiple roles, full idea lifespan</div>
     <div class="lifecycle-flow" id="lifecycle-flow"></div>
-    <div class="lifecycle-note">A Claude project is created once per idea and shared across roles. Each role loads the same L0 + L2 context and the relevant L1 skill for their phase. No context is lost between phases — the project accumulates shared understanding over time.</div>
+    <div class="lifecycle-note">A Claude project is created once per idea and shared across roles. Each role loads the same L1 + L2 context and the relevant L3 skill for their phase. No context is lost between phases — the project accumulates shared understanding over time.</div>
   </div>
 
   <!-- Project setup -->
@@ -178,7 +181,7 @@
           <li>Current Jira state</li>
           <li>Figma component details</li>
           <li>Any live data snapshot</li>
-          <li>Team roster (lives in L0)</li>
+          <li>Team roster (lives in L1)</li>
         </ul>
       </div>
     </div>
@@ -197,11 +200,11 @@
 
 <span class="code-heading">## Always active</span>
 <span class="code-comment"># Load these for every task in this project.</span>
-- <span class="code-value">solargis-company-context</span>   <span class="code-comment"># company, all teams, cross-team ownership, product index</span>
-- <span class="code-value">solargis-esd-context</span>        <span class="code-comment"># deep ESD product context — replace with your product's L2 skill</span>
+- <span class="code-value">solargis-company-context</span>   <span class="code-comment"># L1 — company, all teams, cross-team ownership, product index</span>
+- <span class="code-value">solargis-esd-context</span>        <span class="code-comment"># L2 — deep ESD product context; replace with your product's skill</span>
 
 <span class="code-heading">## Phase skills — load when the task matches</span>
-<span class="code-comment"># Claude selects the relevant skill based on what is being worked on.</span>
+<span class="code-comment"># L3 — Claude selects the relevant skill based on what is being worked on.</span>
 - <span class="code-value">jpd-idea-description</span>        <span class="code-comment"># Phase 1 — writing or refining the JPD idea</span>
 - <span class="code-value">epic-wbs-breakdown</span>          <span class="code-comment"># Phase 2 — breaking the epic into Jira issues</span>
 - <span class="code-value">jira-story-writing</span>          <span class="code-comment"># Phase 3 — writing stories, tasks, analyses</span>
@@ -218,7 +221,7 @@
 <span class="code-key">Open questions:</span>       <span class="code-value">[unresolved items — expected to evolve]</span>
 
 <span class="code-heading">## Live data</span>
-<span class="code-comment"># Always fetch current state via MCP — never assume from memory.</span>
+<span class="code-comment"># L5 — always fetch current state via MCP, never assume from memory.</span>
 - Jira: query live for story status, sprint, blockers
 - Figma: fetch component when referenced
 - Solargis KB: use web_fetch on docs URL when official documentation is needed</div>
@@ -239,7 +242,7 @@ const CONSUMERS = {
 
 const layers = [
   {
-    id: "L0", label: "Company layer", isNew: true,
+    id: "L1", label: "Company layer", isNew: true,
     tagline: "who we are, what we own",
     color: "#6366f1", bg: "#eef2ff", border: "#a5b4fc",
     scope: "Everyone — POs, Devs, Sales, Marketing, Customer Success, Tech Writers",
@@ -249,13 +252,11 @@ const layers = [
     content: [
       "Solargis mission and product portfolio",
       "HL description of each product (2–3 sentences) + pointer to its L2 skill",
-      "All teams + people + roles (dev, sales, marketing, CS)",
+      "All teams + people + roles across the company",
       "Cross-team ownership map — what each team owns and depends on",
       "Base writing rules shared across all outputs",
-      "Sales: pricing tiers and demo limitations per product",
-      "Marketing: positioning and ICP per product",
     ],
-    note: "Skill: solargis-company-context. Owner: all POs jointly, changes by consensus. Cross-team dependencies live here — not in L2 — because ownership is a company-wide fact, not a product-specific one. Product descriptions are intentionally shallow: two or three sentences, then an explicit pointer to the L2 skill for deep context."
+    note: "Skill: solargis-company-context. Owner: all POs jointly, changes by consensus. Provisioned org-wide by a Team admin — one publish, everyone gets it. Product descriptions are intentionally shallow: two or three sentences, then an explicit pointer to the L2 skill for deep context. Sales- and Marketing-specific dynamic content (pricing, positioning) is intentionally excluded — too volatile for a static skill, better handled separately by the people responsible."
   },
   {
     id: "L2", label: "Product context", isNew: false,
@@ -273,10 +274,10 @@ const layers = [
       "Product-specific terminology and naming conventions",
       "Team-specific writing and AC rules",
     ],
-    note: "Stored as a Skill for auto-triggering. Confluence is the canonical editor — PO edits there, then copies content into the skill file. Cross-team dependencies intentionally excluded here — they live in L0. ESD has: solargis-esd-context. Each product needs its own: solargis-apps-context, solargis-simulator-context, etc."
+    note: "Stored as a Skill for auto-triggering. Confluence is the canonical editor — PO edits there, then copies content into the skill file. Cross-team dependencies intentionally excluded — they live in L1. ESD has: solargis-esd-context. Each product needs its own: solargis-apps-context, solargis-simulator-context, etc. Owner: PO of each product team."
   },
   {
-    id: "L1", label: "Role methodology", isNew: false,
+    id: "L3", label: "Role methodology", isNew: false,
     tagline: "how we work",
     color: "#0891b2", bg: "#ecfeff", border: "#67e8f9",
     scope: "All roles — currently PO-focused, extensible to Marketing, TW, Testers and others",
@@ -292,10 +293,10 @@ const layers = [
       "PO — Phase 6: release-linkedin-post",
       "Future: marketing-content, test-case-writing, cs-response, …",
     ],
-    note: "Currently covers the full PO workflow. The structure is intentionally generic — any role can add their own skills following the same pattern. A project can list skills from multiple roles, enabling handoff without context loss. Owner per skill: the role that uses it. Cross-role changes require consensus."
+    note: "Currently covers the full PO workflow. The structure is intentionally generic — any role can add their own skills following the same pattern. A project can list skills from multiple roles, enabling seamless handoff without context loss. Owner per skill: the role that uses it. Cross-role changes require consensus. All skills provisioned centrally by Team admin."
   },
   {
-    id: "L3", label: "Project (idea)", isNew: false,
+    id: "L4", label: "Project (idea)", isNew: false,
     tagline: "what we are working on right now",
     color: "#d97706", bg: "#fffbeb", border: "#fcd34d",
     scope: "1 Claude project = 1 JPD idea — shared by all roles across the full lifecycle",
@@ -315,7 +316,7 @@ const layers = [
     note: "A project is created once and shared — PO, developers, TW, testers all work in the same project across phases. Each role loads the skills relevant to their work. Short idea: context fits directly in Project Instructions. Long idea: attach idea-context.md. Never contains live Jira or Figma state."
   },
   {
-    id: "L4", label: "Live state", isNew: false,
+    id: "L5", label: "Live state", isNew: false,
     tagline: "what the state is right now",
     color: "#dc2626", bg: "#fef2f2", border: "#fca5a5",
     scope: "Per conversation — always fresh, never stored",
@@ -342,7 +343,7 @@ const phases = [
   { num: 7, name: "Release",        role: "All roles",       color: "#dc2626" },
 ];
 
-// Build lifecycle
+// Lifecycle
 const lfContainer = document.getElementById("lifecycle-flow");
 phases.forEach((p, i) => {
   const phase = document.createElement("div");
@@ -361,22 +362,18 @@ phases.forEach((p, i) => {
   }
 });
 
-// Build layers
+// Layers
 const container = document.getElementById("layers");
 layers.forEach(layer => {
   const el = document.createElement("div");
   el.className = "layer";
   el.style.borderColor = layer.border;
-
   const arrowId = `arr-${layer.id}`;
   const bodyId  = `body-${layer.id}`;
-
   const mechHTML = layer.mechanisms.map(m =>
     `<div class="mech-badge" style="color:${m.color};border-color:${m.color}">${m.label}</div>`
   ).join('');
-
   const badgesHTML = layer.isNew ? '<span class="badge badge-new">NEW</span>' : '';
-
   const consumerHTML = (layer.consumers||[]).map(k => {
     const c = CONSUMERS[k];
     return `<span class="consumer-tag" style="background:${c.bg};color:${c.color}">${c.label}</span>`;
