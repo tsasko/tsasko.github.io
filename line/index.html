@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AC Current Animation - GreasedLine</title>
+  <style>
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    canvas { width: 100%; height: 100%; display: block; }
+  </style>
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.babylonjs.com/materialsLibrary/babylonjs.materials.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babylonjs/core@8.9.0/Engines/engine.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babylonjs/core@8.9.0/scene.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babylonjs/core@8.9.0/Meshes/greasedLineMesh.js"></script>
+</head>
+<body>
+  <canvas id="renderCanvas"></canvas>
+  <script>
+    const canvas = document.getElementById("renderCanvas");
+    const engine = new BABYLON.Engine(canvas, true);
+    const scene = new BABYLON.Scene(engine);
+
+    const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 3, 20, BABYLON.Vector3.Zero(), scene);
+    camera.attachControl(canvas, true);
+
+    const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(1, 1, 0), scene);
+
+    // Create a simple sinusoidal 3D path
+    const path = [];
+    const length = 50;
+    for (let i = 0; i <= length; i++) {
+      const x = i * 0.2;
+      const y = Math.sin(i * 0.4);
+      const z = 0;
+      path.push(new BABYLON.Vector3(x, y, z));
+    }
+
+    // GreasedLine
+    if (!BABYLON.GreasedLineMesh) {
+      console.error("GreasedLine plugin is not loaded!");
+    }
+    const sourceMesh = new BABYLON.GreasedLineMesh("line", scene, {
+      points: [path],
+      width: 0.1,
+    });
+
+    // --- Custom ShaderMaterial for AC animation ---
+    BABYLON.Effect.ShadersStore["acLineVertexShader"] = `
+      precision highp float;
+      // Attributes
+      attribute vec3 position;
+      attribute vec2 uv;
+      // Uniforms
+      uniform mat4 worldViewProjection;
+      varying vec2 vUV;
+      void main(void) {
+        gl_Position = worldViewProjection * vec4(position, 1.0);
+        vUV = uv;
+      }
+    `;
+
+    BABYLON.Effect.ShadersStore["acLineFragmentShader"] = `
+      precision highp float;
+      varying vec2 vUV;
+      uniform float uTime;
+      void main(void) {
+        float wave = sin(vUV.x * 20.0 + uTime * 4.0);
+        float alpha = smoothstep(0.2, 0.8, wave);
+        gl_FragColor = vec4(0.0, 1.0, 1.0, alpha);
+      }
+    `;
+
+    const shaderMaterial = new BABYLON.ShaderMaterial("acLineShader", scene, {
+      vertex: "acLine",
+      fragment: "acLine"
+    }, {
+      attributes: ["position", "uv"],
+      uniforms: ["worldViewProjection", "uTime"],
+      needAlphaBlending: true
+    });
+
+    shaderMaterial.backFaceCulling = false;
+    shaderMaterial.alphaMode = BABYLON.Constants.ALPHA_COMBINE;
+    shaderMaterial.setFloat("uTime", 0);
+    sourceMesh.material = shaderMaterial;
+
+    scene.registerBeforeRender(() => {
+      const t = performance.now() * 0.001;
+      shaderMaterial.setFloat("uTime", t);
+    });
+
+    engine.runRenderLoop(() => scene.render());
+    window.addEventListener("resize", () => engine.resize());
+  </script>
+</body>
+</html>

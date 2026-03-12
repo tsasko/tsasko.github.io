@@ -1,0 +1,85 @@
+/* ── Reset ───────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Design tokens ───────────────────────────────────────────────────────────── */
+:root {
+  /* Background */
+  --color-bg:           #FFFFFF;
+  --color-bg-subtle:    #F7F8FA;
+  --color-bg-muted:     #EEF0F3;
+
+  /* Borders */
+  --color-border:        #DDE1E7;
+  --color-border-subtle: #EAECF0;
+
+  /* Text */
+  --color-text:          #111827;
+  --color-text-secondary:#6B7280;
+  --color-text-muted:    #9CA3AF;
+
+  /* Brand */
+  --color-primary:       #1D6EE6;
+  --color-primary-bg:    #EBF2FE;
+
+  /* Warning */
+  --color-warning:       #D97706;
+  --color-warning-bg:    #FFFBEB;
+  --color-warning-border:#FDE68A;
+
+  /* Info */
+  --color-info:          #2563EB;
+  --color-info-bg:       #EFF6FF;
+  --color-info-border:   #BFDBFE;
+
+  /* Misc */
+  --radius: 6px;
+  --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, monospace;
+
+  /* ── Node kind colors ────────────────────────────────────────────────────── */
+
+  /* PCC / gridConnection */
+  --kind-pcc-stroke:  #B45309;
+  --kind-pcc-bg:      #FFFBEB;
+  --kind-pcc-tag-bg:  #FEF3C7;
+  --kind-pcc-tag-fg:  #92400E;
+  --kind-pcc-wire:    #D97706;
+
+  /* Power Transformer */
+  --kind-pt-stroke:   #C2410C;
+  --kind-pt-bg:       #FFF7ED;
+  --kind-pt-tag-bg:   #FFEDD5;
+  --kind-pt-tag-fg:   #9A3412;
+  --kind-pt-wire:     #EA580C;
+
+  /* Inverter Transformer */
+  --kind-it-stroke:   #0369A1;
+  --kind-it-bg:       #F0F9FF;
+  --kind-it-tag-bg:   #E0F2FE;
+  --kind-it-tag-fg:   #075985;
+  --kind-it-wire:     #0284C7;
+
+  /* Inverter Setup */
+  --kind-is-stroke:   #047857;
+  --kind-is-bg:       #F0FDF4;
+  --kind-is-tag-bg:   #DCFCE7;
+  --kind-is-tag-fg:   #065F46;
+  --kind-is-wire:     #059669;
+
+  /* PV Array */
+  --kind-array-stroke:#6D28D9;
+  --kind-array-bg:    #F5F3FF;
+  --kind-array-tag-bg:#EDE9FE;
+  --kind-array-tag-fg:#4C1D95;
+  --kind-array-wire:  #7C3AED;
+}
+
+button { font-family: inherit; }

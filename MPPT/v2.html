@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>MPPT Voltage Histogram</title>
+  <script src="https://code.highcharts.com/highcharts.js"></script>
+  <script src="https://code.highcharts.com/modules/xrange.js"></script>
+  <script src="https://code.highcharts.com/modules/columnrange.js"></script>
+  <style>
+    #container {
+      width: 900px;
+      height: 450px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <script>
+    const VDC_MIN = 500;
+    const VDC_MAX = 1500;
+    const MPPT_MIN = 930;
+    const MPPT_MAX = 1300;
+    const BUFFER = 100;
+
+    const BIN_EDGES = [
+      VDC_MIN - BUFFER,
+      VDC_MIN,
+      MPPT_MIN,
+      MPPT_MAX,
+      VDC_MAX,
+      VDC_MAX + BUFFER
+    ];
+
+    const BIN_COLORS = [
+      '#e74c3c', // red
+      '#f39c12', // orange
+      '#27ae60', // green
+      '#f39c12', // orange
+      '#e74c3c'  // red
+    ];
+
+    // Simulated MPPT values for demonstration
+    const greenRangeValues = Array.from({ length: 325 }, () => Math.random() * (MPPT_MAX - MPPT_MIN) + MPPT_MIN);
+    const mpptValues = [
+      747.2, 747.2, 820.0, 1305.0, 925, 940, 960, 1100, 1400, 1520, 480, 510, 870,
+      ...greenRangeValues
+    ];
+
+    // Count MPPTs in each bin
+    const binCounts = new Array(BIN_EDGES.length - 1).fill(0);
+    mpptValues.forEach(v => {
+      for (let i = 0; i < BIN_EDGES.length - 1; i++) {
+        if (v >= BIN_EDGES[i] && v < BIN_EDGES[i + 1]) {
+          binCounts[i]++;
+          break;
+        }
+      }
+    });
+
+    const histogramData = binCounts.map((count, i) => ({
+      x: BIN_EDGES[i],
+      x2: BIN_EDGES[i + 1],
+      y: count,
+      color: BIN_COLORS[i]
+    }));
+
+    Highcharts.chart('container', {
+      chart: {
+        type: 'xrange',
+        inverted: false,
+        height: 450
+      },
+      title: {
+        text: 'MPPT Voltage Distribution'
+      },
+      xAxis: {
+        type: 'linear',
+        title: { text: 'Voltage (V)' },
+        tickInterval: 100
+      },
+      yAxis: {
+        type: 'logarithmic',
+        minorTickInterval: 0.1,
+        title: {
+          text: 'Number of MPPTs'
+        },
+        labels: {
+          enabled: true
+        }
+      },
+      tooltip: {
+        pointFormatter: function () {
+          return `<b>${this.y} MPPT(s)</b><br/>Range: ${this.x - (this.x2 - this.x) / 2}–${this.x + (this.x2 - this.x) / 2} V`;
+        }
+      },
+      plotOptions: {
+        xrange: {
+          grouping: false,
+          pointPadding: 0,
+          groupPadding: 0,
+          borderWidth: 0,
+          dataLabels: {
+            enabled: true,
+            format: '{point.y}',
+            inside: true,
+            style: {
+              fontWeight: 'bold'
+            }
+          }
+        }
+      },
+      series: [{
+        name: 'MPPT Count',
+        data: histogramData,
+        dataLabels: {
+          enabled: true,
+          format: '{point.y}',
+          inside: true,
+          style: {
+            fontWeight: 'bold'
+          }
+        }
+      }]
+    });
+  </script>
+</body>
+</html>
